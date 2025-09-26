@@ -11,7 +11,7 @@ jobs:
       - name: 🚀 Checkout del código
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GH_ACTIONS_TOKEN }}  # ← Este es el MISXV-ACTIONS-TOKEN
+          token: ${{ secrets.GH_ACTIONS_TOKEN }}
           
       - name: 🔐 Actualizar y encriptar confirmaciones
         run: |

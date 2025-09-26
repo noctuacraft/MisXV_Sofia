@@ -1034,10 +1034,9 @@
 <script>
     // ========== CONFIGURACIÓN ==========
     const TOKEN_INVITACION_VALIDO = "XVSOFIA2025";
-    const GITHUB_TOKEN = "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"; // REEMPLAZA CON TU TOKEN
-    const REPO_OWNER = "noctuacraft"; // Tu usuario de GitHub CORREGIDO
-    const REPO_NAME = "MisXV_Sofia"; // Tu repositorio CORREGIDO
-    const ARCHIVO_CONFIRMACIONES = "confirmaciones.txt";
+    const DISPATCHER_TOKEN = "github_pat_tu_token_dispatcher_aqui"; // REEMPLAZA
+    const REPO_OWNER = "noctuacraft";
+    const REPO_NAME = "MisXV_Sofia";
 
     // ========== VARIABLES GLOBALES ==========
     let confirmacionPendiente = null;
@@ -1064,68 +1063,30 @@
         return token === TOKEN_INVITACION_VALIDO;
     }
 
-    // ========== FUNCIÓN CORREGIDA PARA GUARDAR EN GITHUB ==========
-    async function guardarEnGitHub(confirmacion) {
+    // ========== FUNCIÓN PARA DISPARAR EL WORKFLOW ==========
+    async function dispararWorkflowGitHub(confirmacion) {
         try {
-            // 1. Obtener el archivo actual de confirmaciones
-            const urlGet = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${ARCHIVO_CONFIRMACIONES}`;
-            
-            let contenidoActual = "🎉 LISTA DE CONFIRMACIONES XV SOFÍA 🎉\n";
-            contenidoActual += "======================================\n\n";
-            let sha = null;
-            
-            try {
-                const responseGet = await fetch(urlGet, {
-                    headers: {
-                        'Authorization': `Bearer ${GITHUB_TOKEN}`,
-                        'Accept': 'application/vnd.github.v3+json',
-                        'User-Agent': 'XV-Sofia-App'
-                    }
-                });
-                
-                if (responseGet.ok) {
-                    const data = await responseGet.json();
-                    // Decodificar base64 correctamente
-                    contenidoActual = decodeBase64(data.content);
-                    sha = data.sha;
-                }
-            } catch (error) {
-                console.log('Creando archivo nuevo...');
-            }
-            
-            // 2. Agregar la nueva confirmación (sin emojis problemáticos)
-            contenidoActual += `NOMBRE: ${confirmacion.nombre}\n`;
-            contenidoActual += `CONTACTO: ${confirmacion.contact}\n`;
-            contenidoActual += `ASISTENCIA: ${confirmacion.asistencia === 'si' ? 'CONFIRMADO' : 'NO ASISTE'}\n`;
-            contenidoActual += `ACOMPAÑANTES: ${confirmacion.guests}\n`;
-            contenidoActual += `ALERGIAS: ${confirmacion.alergias}${confirmacion.otrasAlergias ? ` - ${confirmacion.otrasAlergias}` : ''}\n`;
-            contenidoActual += `PREFERENCIAS: ${confirmacion.preferencias}${confirmacion.otrasPreferencias ? ` - ${confirmacion.otrasPreferencias}` : ''}\n`;
-            contenidoActual += `FECHA: ${confirmacion.timestamp}\n`;
-            contenidoActual += "-----------------------------------------\n\n";
-            
-            // 3. Codificar contenido en base64 CORRECTAMENTE
-            const contenidoCodificado = encodeBase64(contenidoActual);
-            
-            // 4. Subir/actualizar el archivo en GitHub
-            const urlPut = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${ARCHIVO_CONFIRMACIONES}`;
+            const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/dispatches`;
             
             const payload = {
-                message: `Nueva confirmacion - ${confirmacion.nombre}`,
-                content: contenidoCodificado,
-                committer: {
-                    name: "XV Sofia Bot",
-                    email: "bot@xvsofia.com"
+                event_type: "nueva_confirmacion",
+                client_payload: {
+                    confirmacion: {
+                        nombre: confirmacion.nombre,
+                        email: confirmacion.contact,
+                        asistencia: confirmacion.asistencia === 'si' ? 'SI' : 'NO',
+                        acompanantes: confirmacion.guests,
+                        alergias: confirmacion.alergias + (confirmacion.otrasAlergias ? ` - ${confirmacion.otrasAlergias}` : ''),
+                        preferencias: confirmacion.preferencias + (confirmacion.otrasPreferencias ? ` - ${confirmacion.otrasPreferencias}` : ''),
+                        fecha: confirmacion.timestamp
+                    }
                 }
             };
             
-            if (sha) {
-                payload.sha = sha;
-            }
-            
-            const response = await fetch(urlPut, {
-                method: 'PUT',
+            const response = await fetch(url, {
+                method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${GITHUB_TOKEN}`,
+                    'Authorization': `token ${DISPATCHER_TOKEN}`,
                     'Accept': 'application/vnd.github.v3+json',
                     'Content-Type': 'application/json',
                     'User-Agent': 'XV-Sofia-App'
@@ -1133,51 +1094,31 @@
                 body: JSON.stringify(payload)
             });
             
-            if (response.ok) {
-                console.log('✅ Confirmación guardada en GitHub');
-                return { exito: true, mensaje: 'Confirmación guardada en GitHub' };
+            if (response.status === 204) {
+                console.log('✅ Workflow disparado exitosamente');
+                return { exito: true, mensaje: 'Confirmación enviada al servidor' };
             } else {
-                const errorData = await response.json();
-                console.error('Error de GitHub:', errorData);
-                throw new Error(errorData.message || 'Error 401 - Token inválido');
+                const errorData = await response.text();
+                throw new Error(`Error ${response.status}: ${errorData}`);
             }
             
         } catch (error) {
-            console.error('❌ Error al guardar en GitHub:', error);
+            console.error('❌ Error al disparar workflow:', error);
             throw error;
         }
-    }
-
-    // ========== FUNCIONES BASE64 CORREGIDAS ==========
-    function encodeBase64(str) {
-        // Método más robusto para base64
-        if (typeof btoa === 'function') {
-            return btoa(unescape(encodeURIComponent(str)));
-        }
-        // Fallback para Node.js o entornos sin btoa
-        return Buffer.from(str, 'utf8').toString('base64');
-    }
-
-    function decodeBase64(str) {
-        // Método más robusto para base64
-        if (typeof atob === 'function') {
-            return decodeURIComponent(escape(atob(str)));
-        }
-        // Fallback para Node.js o entornos sin atob
-        return Buffer.from(str, 'base64').toString('utf8');
     }
 
     // ========== FUNCIÓN PRINCIPAL DE CONFIRMACIÓN ==========
     async function procesarConfirmacion(confirmacion) {
         return new Promise(async (resolve) => {
-            console.log('💾 Guardando confirmación en GitHub...', confirmacion);
+            console.log('💾 Disparando workflow de GitHub...', confirmacion);
             
             try {
-                const resultado = await guardarEnGitHub(confirmacion);
+                const resultado = await dispararWorkflowGitHub(confirmacion);
                 resolve(resultado);
                 
             } catch (error) {
-                // Fallback: guardar en localStorage si GitHub falla
+                // Fallback: guardar en localStorage
                 try {
                     const confirmaciones = JSON.parse(localStorage.getItem('confirmacionesXV')) || [];
                     confirmaciones.push(confirmacion);
@@ -1198,7 +1139,7 @@
         });
     }
 
-    // ========== EFECTOS VISUALES ==========
+    // ========== EFECTOS VISUALES (se mantienen igual) ==========
     function crearEfectoConfeti() {
         const colores = ['#8b5cf6', '#ec4899', '#d8b4fe', '#c4b5fd', '#a855f7'];
         
@@ -1359,7 +1300,7 @@
         const originalText = btn.textContent;
         
         try {
-            btn.textContent = 'ENVIANDO A GITHUB...';
+            btn.textContent = 'ENVIANDO AL SERVIDOR...';
             btn.disabled = true;
             
             const resultado = await procesarConfirmacion(confirmacionPendiente);
@@ -1370,7 +1311,7 @@
                 confirmation.style.display = 'block';
                 
                 const mensajeExito = confirmacionPendiente.asistencia === 'si' 
-                    ? `¡Gracias ${confirmacionPendiente.nombre}! Confirmación guardada. 🎉` 
+                    ? `¡Gracias ${confirmacionPendiente.nombre}! Confirmación enviada al servidor. 🎉` 
                     : `Lamentamos que no puedas asistir, ${confirmacionPendiente.nombre}. 😔`;
                 
                 mostrarMensaje(mensajeExito, false);
@@ -1395,7 +1336,7 @@
         } catch (error) {
             console.error('Error en el proceso:', error);
             ocultarModalToken();
-            mostrarMensaje('❌ Error al guardar en GitHub. Se guardó localmente.', true);
+            mostrarMensaje('❌ Error al enviar al servidor. Se guardó localmente.', true);
             
             btn.textContent = 'ERROR - INTENTA DE NUEVO';
             setTimeout(() => {
@@ -1406,28 +1347,7 @@
     });
 
     // ... (el resto del código se mantiene igual)
-    document.getElementById('tokenCancel').addEventListener('click', function() {
-        ocultarModalToken();
-        const btn = document.getElementById('submit-btn');
-        btn.disabled = false;
-        confirmacionPendiente = null;
-        mostrarMensaje('Confirmación cancelada', true);
-    });
-
-    document.getElementById('tokenInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            document.getElementById('tokenSubmit').click();
-        }
-    });
-
-    document.getElementById('tokenModal').addEventListener('click', function(e) {
-        if (e.target === this) {
-            ocultarModalToken();
-            const btn = document.getElementById('submit-btn');
-            btn.disabled = false;
-            confirmacionPendiente = null;
-        }
-    });
+</script>
 
     // ========== CÓDIGO ORIGINAL (partículas, música, etc.) ==========
     document.addEventListener('DOMContentLoaded', function() {
