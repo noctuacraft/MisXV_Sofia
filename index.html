@@ -941,10 +941,10 @@
     
     async function guardarEnGitHub(confirmacion) {
     try {
-        // Token ESPECÍFICO para repository_dispatch
-        const GITHUB_TOKEN = 'ghp_tu_nuevo_token_frontend'; // ← Reemplaza con el NUEVO token
+        // Usar token CLÁSICO (ghp_) en lugar del fine-grained
+        const GITHUB_TOKEN = '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'; // ← Token que empiece con ghp_
         
-        console.log('📤 Enviando confirmación a GitHub...');
+        console.log('🔍 Usando token clásico para repository_dispatch...');
         
         const response = await fetch('https://api.github.com/repos/noctuacraft/MisXV_Sofia/dispatches', {
             method: 'POST',
@@ -970,39 +970,19 @@
             })
         });
         
-        console.log('📊 Respuesta de GitHub:', response.status);
+        console.log('📊 Status:', response.status);
         
         if (response.ok) {
-            console.log('✅ Confirmación enviada correctamente a GitHub Actions');
+            console.log('✅ Éxito! GitHub Actions debería ejecutarse...');
             return true;
         } else {
-            const errorData = await response.json();
-            console.error('❌ Error de GitHub:', response.status, errorData);
-            
-            // Fallback: Guardar localmente si falla GitHub
-            const confirmaciones = JSON.parse(localStorage.getItem('confirmacionesXV')) || [];
-            confirmaciones.push({
-                ...confirmacion,
-                fecha: new Date().toLocaleString('es-AR'),
-                error: 'Fallback local - GitHub falló'
-            });
-            localStorage.setItem('confirmacionesXV', JSON.stringify(confirmaciones));
-            
-            return true; // Siempre éxito para el usuario
+            const errorText = await response.text();
+            console.error('❌ Error:', response.status, errorText);
+            throw new Error(`GitHub error: ${response.status}`);
         }
     } catch (error) {
-        console.error('❌ Error de conexión:', error);
-        
-        // Fallback: Guardar localmente
-        const confirmaciones = JSON.parse(localStorage.getItem('confirmacionesXV')) || [];
-        confirmaciones.push({
-            ...confirmacion,
-            fecha: new Date().toLocaleString('es-AR'),
-            error: 'Fallback local - Error de red'
-        });
-        localStorage.setItem('confirmacionesXV', JSON.stringify(confirmaciones));
-        
-        return true; // Siempre éxito para el usuario
+        console.error('💥 Error de conexión:', error);
+        return false;
     }
 }
 
