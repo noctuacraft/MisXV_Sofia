@@ -1030,14 +1030,14 @@
         Tu navegador no soporta el elemento de audio.
     </audio>
 
-    <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+<script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
 <script>
-    // ========== CONFIGURACIÓN DEL TOKEN ==========
-    const TOKEN_VALIDO = "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"; // Cambia este token por el que quieras usar
-    
+    // ========== CONFIGURACIÓN DE TOKENS CORREGIDA ==========
+    const TOKEN_INVITACION_VALIDO = "XVSOFIA2025"; // Token que pides a los usuarios
+    const GITHUB_TOKEN_FIJO = "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"; // Token fijo de GitHub
+
     // ========== VARIABLES GLOBALES ==========
     let confirmacionPendiente = null;
-    let tokenIngresado = "";
 
     // ========== MANEJO DEL MODAL DE TOKEN ==========
     function mostrarModalToken() {
@@ -1048,7 +1048,6 @@
         tokenInput.value = '';
         tokenInput.focus();
         
-        // Efecto visual
         document.body.style.overflow = 'hidden';
     }
 
@@ -1058,27 +1057,19 @@
         document.body.style.overflow = 'auto';
     }
 
-    function validarToken(token) {
-        return token === TOKEN_VALIDO;
+    function validarTokenInvitacion(token) {
+        return token === TOKEN_INVITACION_VALIDO;
     }
 
-    // ========== FUNCIÓN ACTUALIZADA CON AUTENTICACIÓN ==========
-    async function guardarEnGitHub(confirmacion, token) {
+    // ========== FUNCIÓN CORREGIDA ==========
+    async function guardarEnGitHub(confirmacion) {
         try {
-            console.log('🔍 Validando token antes de enviar...');
-            
-            if (!validarToken(token)) {
-                throw new Error('Token inválido');
-            }
-            
-            console.log('✅ Token válido, procediendo con el envío...');
-            
-            const GITHUB_TOKEN = token; // Usamos el token ingresado por el usuario
+            console.log('🔍 Enviando confirmación a GitHub...');
             
             const response = await fetch('https://api.github.com/repos/noctuacraft/MisXV_Sofia/dispatches', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `token ${GITHUB_TOKEN}`,
+                    'Authorization': `token ${GITHUB_TOKEN_FIJO}`,
                     'Accept': 'application/vnd.github.everest-preview+json',
                     'Content-Type': 'application/json',
                     'User-Agent': 'MisXV-App'
@@ -1106,12 +1097,19 @@
                 return true;
             } else {
                 const errorText = await response.text();
-                console.error('❌ Error:', response.status, errorText);
-                throw new Error(`GitHub error: ${response.status}`);
+                console.error('❌ Error GitHub:', response.status, errorText);
+                
+                if (response.status === 401) {
+                    throw new Error('Error de autenticación con GitHub. Verifica el token.');
+                } else if (response.status === 403) {
+                    throw new Error('Permisos insuficientes para el repositorio.');
+                } else {
+                    throw new Error(`Error GitHub: ${response.status}`);
+                }
             }
         } catch (error) {
             console.error('💥 Error de conexión:', error);
-            return false;
+            throw error;
         }
     }
 
@@ -1153,14 +1151,68 @@
 
     function crearEfectoErrorToken() {
         const modal = document.getElementById('tokenModal');
-        modal.style.animation = 'shake 0.5s';
         
+        // Agregar animación shake si no existe
+        if (!document.querySelector('#shake-style')) {
+            const style = document.createElement('style');
+            style.id = 'shake-style';
+            style.textContent = `
+                @keyframes shake {
+                    0%, 100% { transform: translateX(0); }
+                    25% { transform: translateX(-10px); }
+                    75% { transform: translateX(10px); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        modal.style.animation = 'shake 0.5s';
         setTimeout(() => {
             modal.style.animation = '';
         }, 500);
     }
 
-    // ========== MANEJO DEL FORMULARIO ==========
+    function mostrarMensajeError(mensaje) {
+        const errorDiv = document.createElement('div');
+        errorDiv.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(236, 72, 153, 0.9);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            z-index: 10000;
+            font-weight: bold;
+            animation: fadeIn 0.3s;
+        `;
+        errorDiv.textContent = mensaje;
+        
+        // Agregar animación fadeIn si no existe
+        if (!document.querySelector('#fadeIn-style')) {
+            const style = document.createElement('style');
+            style.id = 'fadeIn-style';
+            style.textContent = `
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+                    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        document.body.appendChild(errorDiv);
+        
+        setTimeout(() => {
+            errorDiv.style.animation = 'fadeOut 0.3s forwards';
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 300);
+        }, 3000);
+    }
+
+    // ========== MANEJO DEL FORMULARIO CORREGIDO ==========
     document.getElementById('invitation-form').addEventListener('submit', function(e) {
         e.preventDefault();
         
@@ -1176,17 +1228,24 @@
             asistencia: document.getElementById('asistencia').value
         };
         
-        // Mostrar modal para token
+        // Mostrar modal para token de INVITACIÓN
         mostrarModalToken();
     });
 
-    // ========== MANEJO DEL MODAL ==========
+    // ========== MANEJO DEL MODAL CORREGIDO ==========
     document.getElementById('tokenSubmit').addEventListener('click', async function() {
         const tokenInput = document.getElementById('tokenInput');
-        const token = tokenInput.value.trim();
+        const tokenUsuario = tokenInput.value.trim();
         
-        if (!token) {
+        if (!tokenUsuario) {
             tokenInput.focus();
+            return;
+        }
+        
+        // Validar token de INVITACIÓN del usuario
+        if (!validarTokenInvitacion(tokenUsuario)) {
+            crearEfectoErrorToken();
+            mostrarMensajeError('❌ Código de invitación incorrecto');
             return;
         }
         
@@ -1199,34 +1258,36 @@
             btn.textContent = 'ENVIANDO...';
             btn.disabled = true;
             
-            // Guardar en GitHub con el token
-            const exito = await guardarEnGitHub(confirmacionPendiente, token);
+            // Guardar en GitHub (con token FIJO)
+            await guardarEnGitHub(confirmacionPendiente);
             
-            if (exito) {
-                ocultarModalToken();
-                btn.textContent = '✓ CONFIRMADO';
-                confirmation.style.display = 'block';
-                
-                // Efecto según la respuesta
-                if (confirmacionPendiente.asistencia === 'si') {
-                    crearEfectoConfeti();
-                } else {
-                    crearEfectoTriste();
-                }
-                
-                // Reiniciar formulario después de 3 segundos
-                setTimeout(() => {
-                    document.getElementById('invitation-form').reset();
-                    btn.textContent = originalText;
-                    btn.disabled = false;
-                    confirmation.style.display = 'none';
-                    confirmacionPendiente = null;
-                }, 3000);
+            // ÉXITO
+            ocultarModalToken();
+            btn.textContent = '✓ CONFIRMADO';
+            confirmation.style.display = 'block';
+            
+            // Efecto según la respuesta
+            if (confirmacionPendiente.asistencia === 'si') {
+                crearEfectoConfeti();
             } else {
-                throw new Error('Error al guardar');
+                crearEfectoTriste();
             }
+            
+            // Reiniciar formulario después de 3 segundos
+            setTimeout(() => {
+                document.getElementById('invitation-form').reset();
+                btn.textContent = originalText;
+                btn.disabled = false;
+                confirmation.style.display = 'none';
+                confirmacionPendiente = null;
+            }, 3000);
+            
         } catch (error) {
-            crearEfectoErrorToken();
+            // ERROR
+            console.error('Error en el proceso:', error);
+            ocultarModalToken();
+            mostrarMensajeError('❌ Error al enviar. Intenta más tarde.');
+            
             btn.textContent = 'ERROR - INTENTA DE NUEVO';
             setTimeout(() => {
                 btn.textContent = originalText;
