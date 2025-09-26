@@ -1032,8 +1032,12 @@
 
 <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
 <script>
-    // ========== CONFIGURACIÓN SIMPLIFICADA ==========
-    const TOKEN_INVITACION_VALIDO = "XVSOFIA2025"; // Código que pides a los usuarios
+    // ========== CONFIGURACIÓN ==========
+    const TOKEN_INVITACION_VALIDO = "XVSOFIA2025";
+    const GITHUB_TOKEN = "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"; // REEMPLAZA CON TU TOKEN
+    const REPO_OWNER = "noctuacraft"; // Tu usuario de GitHub
+    const REPO_NAME = "MisXV_Sofia"; // Tu repositorio
+    const ARCHIVO_CONFIRMACIONES = "confirmaciones.txt";
 
     // ========== VARIABLES GLOBALES ==========
     let confirmacionPendiente = null;
@@ -1060,73 +1064,116 @@
         return token === TOKEN_INVITACION_VALIDO;
     }
 
-    // ========== FUNCIÓN ACTUALIZADA - CON GUARDADO REAL ==========
-    async function procesarConfirmacion(confirmacion) {
-        return new Promise((resolve) => {
-            console.log('💾 Guardando confirmación...', confirmacion);
+    // ========== FUNCIÓN PARA GUARDAR EN GITHUB ==========
+    async function guardarEnGitHub(confirmacion) {
+        try {
+            // 1. Obtener el archivo actual de confirmaciones
+            const urlGet = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${ARCHIVO_CONFIRMACIONES}`;
+            
+            let contenidoActual = "🎉 LISTA DE CONFIRMACIONES XV SOFÍA 🎉\n";
+            contenidoActual += "======================================\n\n";
+            let sha = null;
             
             try {
-                // 1. Guardar en localStorage
-                const confirmaciones = JSON.parse(localStorage.getItem('confirmacionesXV')) || [];
-                confirmaciones.push(confirmacion);
-                localStorage.setItem('confirmacionesXV', JSON.stringify(confirmaciones));
-                
-                // 2. Crear archivo de respaldo descargable
-                const blob = new Blob([JSON.stringify(confirmaciones, null, 2)], { 
-                    type: 'application/json' 
+                const responseGet = await fetch(urlGet, {
+                    headers: {
+                        'Authorization': `token ${GITHUB_TOKEN}`,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
                 });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `confirmaciones-xv-${new Date().toISOString().split('T')[0]}.json`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
                 
-                console.log('✅ Confirmación guardada correctamente');
-                resolve({ exito: true, mensaje: 'Confirmación guardada correctamente' });
-                
+                if (responseGet.ok) {
+                    const data = await responseGet.json();
+                    contenidoActual = atob(data.content); // Decodificar base64
+                    sha = data.sha; // Necesario para actualizar el archivo
+                }
             } catch (error) {
-                console.error('❌ Error al guardar:', error);
-                resolve({ 
-                    exito: false, 
-                    mensaje: 'Error al guardar la confirmación' 
-                });
+                console.log('Creando archivo nuevo...');
             }
-        });
+            
+            // 2. Agregar la nueva confirmación
+            contenidoActual += `👤 NOMBRE: ${confirmacion.nombre}\n`;
+            contenidoActual += `📧 CONTACTO: ${confirmacion.contact}\n`;
+            contenidoActual += `✅ ASISTENCIA: ${confirmacion.asistencia === 'si' ? 'CONFIRMADO' : 'NO ASISTE'}\n`;
+            contenidoActual += `👥 ACOMPAÑANTES: ${confirmacion.guests}\n`;
+            contenidoActual += `⚠️ ALERGIAS: ${confirmacion.alergias}${confirmacion.otrasAlergias ? ` - ${confirmacion.otrasAlergias}` : ''}\n`;
+            contenidoActual += `🍽️ PREFERENCIAS: ${confirmacion.preferencias}${confirmacion.otrasPreferencias ? ` - ${confirmacion.otrasPreferencias}` : ''}\n`;
+            contenidoActual += `📅 FECHA CONFIRMACIÓN: ${confirmacion.timestamp}\n`;
+            contenidoActual += "-----------------------------------------\n\n";
+            
+            // 3. Codificar contenido en base64
+            const contenidoCodificado = btoa(contenidoActual);
+            
+            // 4. Subir/actualizar el archivo en GitHub
+            const urlPut = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${ARCHIVO_CONFIRMACIONES}`;
+            
+            const payload = {
+                message: `✅ Nueva confirmación - ${confirmacion.nombre}`,
+                content: contenidoCodificado,
+                committer: {
+                    name: "XV Sofia Bot",
+                    email: "actions@github.com"
+                }
+            };
+            
+            // Si el archivo ya existe, agregamos el SHA para actualizarlo
+            if (sha) {
+                payload.sha = sha;
+            }
+            
+            const response = await fetch(urlPut, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `token ${GITHUB_TOKEN}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            if (response.ok) {
+                console.log('✅ Confirmación guardada en GitHub');
+                return { exito: true, mensaje: 'Confirmación guardada en GitHub' };
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Error al guardar en GitHub');
+            }
+            
+        } catch (error) {
+            console.error('❌ Error al guardar en GitHub:', error);
+            throw error;
+        }
     }
 
-    // ========== FUNCIÓN PARA VER CONFIRMACIONES (DESARROLLO) ==========
-    function verConfirmaciones() {
-        const confirmaciones = JSON.parse(localStorage.getItem('confirmacionesXV')) || [];
-        console.log('📋 Confirmaciones guardadas:', confirmaciones);
-        
-        if (confirmaciones.length === 0) {
-            alert('No hay confirmaciones guardadas aún.');
-            return;
-        }
-        
-        // Mostrar resumen en un alert
-        let mensaje = `Tienes ${confirmaciones.length} confirmaciones:\n\n`;
-        confirmaciones.forEach((conf, index) => {
-            mensaje += `${index + 1}. ${conf.nombre} - ${conf.asistencia === 'si' ? '✅ VA' : '❌ NO VA'}\n`;
+    // ========== FUNCIÓN PRINCIPAL DE CONFIRMACIÓN ==========
+    async function procesarConfirmacion(confirmacion) {
+        return new Promise(async (resolve) => {
+            console.log('💾 Guardando confirmación en GitHub...', confirmacion);
+            
+            try {
+                const resultado = await guardarEnGitHub(confirmacion);
+                resolve(resultado);
+                
+            } catch (error) {
+                // Fallback: guardar en localStorage si GitHub falla
+                try {
+                    const confirmaciones = JSON.parse(localStorage.getItem('confirmacionesXV')) || [];
+                    confirmaciones.push(confirmacion);
+                    localStorage.setItem('confirmacionesXV', JSON.stringify(confirmaciones));
+                    
+                    console.log('⚠️ Guardado en localStorage (fallback)');
+                    resolve({ 
+                        exito: true, 
+                        mensaje: 'Confirmación guardada localmente (GitHub no disponible)' 
+                    });
+                } catch (localError) {
+                    resolve({ 
+                        exito: false, 
+                        mensaje: 'Error al guardar la confirmación' 
+                    });
+                }
+            }
         });
-        
-        alert(mensaje);
-        
-        // Opcional: Descargar archivo con todas las confirmaciones
-        const blob = new Blob([JSON.stringify(confirmaciones, null, 2)], { 
-            type: 'application/json' 
-        });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `backup-confirmaciones-${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
     }
 
     // ========== EFECTOS VISUALES ==========
@@ -1168,7 +1215,6 @@
     function crearEfectoErrorToken() {
         const modal = document.getElementById('tokenModal');
         
-        // Agregar animación shake si no existe
         if (!document.querySelector('#shake-style')) {
             const style = document.createElement('style');
             style.id = 'shake-style';
@@ -1189,7 +1235,6 @@
     }
 
     function mostrarMensaje(mensaje, esError = false) {
-        // Remover mensajes anteriores
         const mensajesAnteriores = document.querySelectorAll('.mensaje-flotante');
         mensajesAnteriores.forEach(msg => msg.remove());
         
@@ -1214,7 +1259,6 @@
         `;
         mensajeDiv.textContent = mensaje;
         
-        // Agregar estilos de animación si no existen
         if (!document.querySelector('#animaciones-mensajes')) {
             const style = document.createElement('style');
             style.id = 'animaciones-mensajes';
@@ -1247,7 +1291,6 @@
     document.getElementById('invitation-form').addEventListener('submit', function(e) {
         e.preventDefault();
         
-        // Validar campos requeridos
         const nombre = document.getElementById('name').value.trim();
         const contacto = document.getElementById('contact').value.trim();
         const asistencia = document.getElementById('asistencia').value;
@@ -1257,7 +1300,6 @@
             return;
         }
         
-        // Obtener datos del formulario
         confirmacionPendiente = {
             nombre: nombre,
             contact: contacto,
@@ -1270,7 +1312,6 @@
             timestamp: new Date().toLocaleString('es-AR')
         };
         
-        // Mostrar modal para token de INVITACIÓN
         mostrarModalToken();
     });
 
@@ -1285,7 +1326,6 @@
             return;
         }
         
-        // Validar token de INVITACIÓN del usuario
         if (!validarTokenInvitacion(tokenUsuario)) {
             crearEfectoErrorToken();
             mostrarMensaje('❌ Código de invitación incorrecto', true);
@@ -1297,34 +1337,28 @@
         const originalText = btn.textContent;
         
         try {
-            // Efecto visual inmediato
-            btn.textContent = 'ENVIANDO...';
+            btn.textContent = 'ENVIANDO A GITHUB...';
             btn.disabled = true;
             
-            // Procesar confirmación (CON GUARDADO REAL)
             const resultado = await procesarConfirmacion(confirmacionPendiente);
             
             if (resultado.exito) {
-                // ÉXITO
                 ocultarModalToken();
                 btn.textContent = '✓ CONFIRMADO';
                 confirmation.style.display = 'block';
                 
-                // Mostrar resumen de la confirmación
                 const mensajeExito = confirmacionPendiente.asistencia === 'si' 
-                    ? `¡Gracias ${confirmacionPendiente.nombre}! Estás confirmado para la fiesta. 🎉` 
+                    ? `¡Gracias ${confirmacionPendiente.nombre}! Confirmación guardada en GitHub. 🎉` 
                     : `Lamentamos que no puedas asistir, ${confirmacionPendiente.nombre}. 😔`;
                 
                 mostrarMensaje(mensajeExito, false);
                 
-                // Efecto según la respuesta
                 if (confirmacionPendiente.asistencia === 'si') {
                     crearEfectoConfeti();
                 } else {
                     crearEfectoTriste();
                 }
                 
-                // Reiniciar formulario después de 3 segundos
                 setTimeout(() => {
                     document.getElementById('invitation-form').reset();
                     btn.textContent = originalText;
@@ -1337,7 +1371,6 @@
             }
             
         } catch (error) {
-            // ERROR
             console.error('Error en el proceso:', error);
             ocultarModalToken();
             mostrarMensaje('❌ Error al procesar. Intenta más tarde.', true);
@@ -1364,7 +1397,6 @@
         }
     });
 
-    // Cerrar modal al hacer clic fuera
     document.getElementById('tokenModal').addEventListener('click', function(e) {
         if (e.target === this) {
             ocultarModalToken();
@@ -1373,41 +1405,6 @@
             confirmacionPendiente = null;
         }
     });
-
-    // ========== BOTÓN PARA VER CONFIRMACIONES ==========
-    function agregarBotonVerConfirmaciones() {
-        const verBtn = document.createElement('button');
-        verBtn.textContent = '👁️ VER CONFIRMACIONES';
-        verBtn.id = 'btn-ver-confirmaciones';
-        verBtn.style.cssText = `
-            position: fixed;
-            bottom: 100px;
-            right: 20px;
-            z-index: 1000;
-            padding: 10px 15px;
-            background: linear-gradient(45deg, #8b5cf6, #ec4899);
-            color: white;
-            border: none;
-            border-radius: 25px;
-            cursor: pointer;
-            font-weight: bold;
-            box-shadow: 0 0 15px rgba(139, 92, 246, 0.7);
-            transition: all 0.3s;
-        `;
-        
-        verBtn.addEventListener('mouseenter', function() {
-            this.style.transform = 'scale(1.1)';
-            this.style.boxShadow = '0 0 25px rgba(139, 92, 246, 0.9)';
-        });
-        
-        verBtn.addEventListener('mouseleave', function() {
-            this.style.transform = 'scale(1)';
-            this.style.boxShadow = '0 0 15px rgba(139, 92, 246, 0.7)';
-        });
-        
-        verBtn.addEventListener('click', verConfirmaciones);
-        document.body.appendChild(verBtn);
-    }
 
     // ========== CÓDIGO ORIGINAL (partículas, música, etc.) ==========
     document.addEventListener('DOMContentLoaded', function() {
@@ -1445,11 +1442,9 @@
             },
             retina_detect: true
         });
-        
-        // Agregar botón para ver confirmaciones
-        agregarBotonVerConfirmaciones();
     });
 
+    // ... (el resto del código de partículas, música, etc. se mantiene igual)
     let audioContext;
     let audioElement;
     let isPlaying = false;
