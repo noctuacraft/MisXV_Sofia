@@ -1060,18 +1060,73 @@
         return token === TOKEN_INVITACION_VALIDO;
     }
 
-    // ========== FUNCIÓN SIMPLIFICADA - SIN GITHUB ==========
-    function procesarConfirmacion(confirmacion) {
+    // ========== FUNCIÓN ACTUALIZADA - CON GUARDADO REAL ==========
+    async function procesarConfirmacion(confirmacion) {
         return new Promise((resolve) => {
-            console.log('💾 Procesando confirmación...', confirmacion);
+            console.log('💾 Guardando confirmación...', confirmacion);
             
-            // Simulamos un procesamiento exitoso
-            setTimeout(() => {
-                // Aquí podrías agregar lógica para guardar en localStorage o mostrar resumen
-                console.log('✅ Confirmación exitosa para:', confirmacion.nombre);
-                resolve({ exito: true, mensaje: 'Confirmación procesada correctamente' });
-            }, 1500);
+            try {
+                // 1. Guardar en localStorage
+                const confirmaciones = JSON.parse(localStorage.getItem('confirmacionesXV')) || [];
+                confirmaciones.push(confirmacion);
+                localStorage.setItem('confirmacionesXV', JSON.stringify(confirmaciones));
+                
+                // 2. Crear archivo de respaldo descargable
+                const blob = new Blob([JSON.stringify(confirmaciones, null, 2)], { 
+                    type: 'application/json' 
+                });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `confirmaciones-xv-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                console.log('✅ Confirmación guardada correctamente');
+                resolve({ exito: true, mensaje: 'Confirmación guardada correctamente' });
+                
+            } catch (error) {
+                console.error('❌ Error al guardar:', error);
+                resolve({ 
+                    exito: false, 
+                    mensaje: 'Error al guardar la confirmación' 
+                });
+            }
         });
+    }
+
+    // ========== FUNCIÓN PARA VER CONFIRMACIONES (DESARROLLO) ==========
+    function verConfirmaciones() {
+        const confirmaciones = JSON.parse(localStorage.getItem('confirmacionesXV')) || [];
+        console.log('📋 Confirmaciones guardadas:', confirmaciones);
+        
+        if (confirmaciones.length === 0) {
+            alert('No hay confirmaciones guardadas aún.');
+            return;
+        }
+        
+        // Mostrar resumen en un alert
+        let mensaje = `Tienes ${confirmaciones.length} confirmaciones:\n\n`;
+        confirmaciones.forEach((conf, index) => {
+            mensaje += `${index + 1}. ${conf.nombre} - ${conf.asistencia === 'si' ? '✅ VA' : '❌ NO VA'}\n`;
+        });
+        
+        alert(mensaje);
+        
+        // Opcional: Descargar archivo con todas las confirmaciones
+        const blob = new Blob([JSON.stringify(confirmaciones, null, 2)], { 
+            type: 'application/json' 
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `backup-confirmaciones-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     }
 
     // ========== EFECTOS VISUALES ==========
@@ -1246,7 +1301,7 @@
             btn.textContent = 'ENVIANDO...';
             btn.disabled = true;
             
-            // Procesar confirmación (SIN GitHub)
+            // Procesar confirmación (CON GUARDADO REAL)
             const resultado = await procesarConfirmacion(confirmacionPendiente);
             
             if (resultado.exito) {
@@ -1269,16 +1324,6 @@
                     crearEfectoTriste();
                 }
                 
-                // Opcional: Guardar en localStorage para referencia
-                try {
-                    const confirmaciones = JSON.parse(localStorage.getItem('confirmacionesXV')) || [];
-                    confirmaciones.push(confirmacionPendiente);
-                    localStorage.setItem('confirmacionesXV', JSON.stringify(confirmaciones));
-                    console.log('📋 Confirmación guardada localmente');
-                } catch (e) {
-                    console.log('⚠️ No se pudo guardar localmente');
-                }
-                
                 // Reiniciar formulario después de 3 segundos
                 setTimeout(() => {
                     document.getElementById('invitation-form').reset();
@@ -1287,6 +1332,8 @@
                     confirmation.style.display = 'none';
                     confirmacionPendiente = null;
                 }, 3000);
+            } else {
+                throw new Error(resultado.mensaje);
             }
             
         } catch (error) {
@@ -1327,6 +1374,41 @@
         }
     });
 
+    // ========== BOTÓN PARA VER CONFIRMACIONES ==========
+    function agregarBotonVerConfirmaciones() {
+        const verBtn = document.createElement('button');
+        verBtn.textContent = '👁️ VER CONFIRMACIONES';
+        verBtn.id = 'btn-ver-confirmaciones';
+        verBtn.style.cssText = `
+            position: fixed;
+            bottom: 100px;
+            right: 20px;
+            z-index: 1000;
+            padding: 10px 15px;
+            background: linear-gradient(45deg, #8b5cf6, #ec4899);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 0 15px rgba(139, 92, 246, 0.7);
+            transition: all 0.3s;
+        `;
+        
+        verBtn.addEventListener('mouseenter', function() {
+            this.style.transform = 'scale(1.1)';
+            this.style.boxShadow = '0 0 25px rgba(139, 92, 246, 0.9)';
+        });
+        
+        verBtn.addEventListener('mouseleave', function() {
+            this.style.transform = 'scale(1)';
+            this.style.boxShadow = '0 0 15px rgba(139, 92, 246, 0.7)';
+        });
+        
+        verBtn.addEventListener('click', verConfirmaciones);
+        document.body.appendChild(verBtn);
+    }
+
     // ========== CÓDIGO ORIGINAL (partículas, música, etc.) ==========
     document.addEventListener('DOMContentLoaded', function() {
         particlesJS('particles-js', {
@@ -1363,6 +1445,9 @@
             },
             retina_detect: true
         });
+        
+        // Agregar botón para ver confirmaciones
+        agregarBotonVerConfirmaciones();
     });
 
     let audioContext;
