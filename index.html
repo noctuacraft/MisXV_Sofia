@@ -936,384 +936,401 @@
     </audio>
 
     <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
-    <script>
-
-        // Función para guardar la confirmación en GitHub
-        // REEMPLAZA todo tu código de guardarEnGitHub con esto:
-
-async function guardarEnGitHub(confirmacion) {
-    try {
-        const response = await fetch('https://api.github.com/repos/noctuacraft/MisXV_Sofia/dispatches', {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/vnd.github.everest-preview+json',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                event_type: 'nueva_confirmacion',
-                client_payload: {
-                    confirmacion: confirmacion
-                }
-            })
-        });
-        
-        if (response.ok) {
-            console.log('✅ Confirmación enviada a GitHub Actions');
-            return true;
-        } else {
-            throw new Error('Error al enviar confirmación');
-        }
-    } catch (error) {
-        console.error('❌ Error:', error);
-        return false;
-    }
-}
-        // ========== EFECTOS VISUALES ==========
-        
-        function crearEfectoConfeti() {
-            const colores = ['#8b5cf6', '#ec4899', '#d8b4fe', '#c4b5fd', '#a855f7'];
+<script>
+    // ========== FUNCIÓN ACTUALIZADA CON AUTENTICACIÓN ==========
+    
+    async function guardarEnGitHub(confirmacion) {
+        try {
+            // Token con permisos limitados (solo para este repositorio)
+            // Reemplaza esto con un token real que generes en GitHub
+            const GITHUB_TOKEN = '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';
             
-            for (let i = 0; i < 20; i++) {
-                setTimeout(() => {
-                    for (let j = 0; j < 5; j++) {
-                        const confeti = document.createElement('div');
-                        confeti.className = 'confetti';
-                        confeti.style.backgroundColor = colores[Math.floor(Math.random() * colores.length)];
-                        confeti.style.left = Math.random() * 100 + 'vw';
-                        confeti.style.top = '-10px';
-                        confeti.style.setProperty('--tx', (Math.random() * 200 - 100) + 'px');
-                        confeti.style.setProperty('--rot', (Math.random() * 360) + 'deg');
-                        
-                        document.body.appendChild(confeti);
-                        
-                        setTimeout(() => {
-                            confeti.remove();
-                        }, 2000);
+            const response = await fetch('https://api.github.com/repos/noctuacraft/MisXV_Sofia/dispatches', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `token ${GITHUB_TOKEN}`,
+                    'Accept': 'application/vnd.github.everest-preview+json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    event_type: 'nueva_confirmacion',
+                    client_payload: {
+                        confirmacion: {
+                            nombre: confirmacion.nombre,
+                            email: confirmacion.contact || 'No proporcionado',
+                            asistencia: confirmacion.asistencia === 'si' ? 'CONFIRMADO' : 'NO ASISTE',
+                            acompanantes: confirmacion.guests || 0,
+                            alergias: confirmacion.alergias + (confirmacion.otrasAlergias ? ' (' + confirmacion.otrasAlergias + ')' : ''),
+                            preferencias: confirmacion.preferencias + (confirmacion.otrasPreferencias ? ' (' + confirmacion.otrasPreferencias + ')' : ''),
+                            fecha: new Date().toISOString()
+                        }
                     }
-                }, i * 100);
+                })
+            });
+            
+            if (response.ok) {
+                console.log('✅ Confirmación enviada a GitHub Actions');
+                return true;
+            } else {
+                const errorText = await response.text();
+                console.error('❌ Error de GitHub:', response.status, errorText);
+                throw new Error(`Error ${response.status}: ${errorText}`);
             }
+        } catch (error) {
+            console.error('❌ Error:', error);
+            return false;
         }
+    }
 
-        function crearEfectoTriste() {
-            const caraTriste = document.createElement('div');
-            caraTriste.className = 'sad-effect';
-            caraTriste.innerHTML = '😢';
-            document.body.appendChild(caraTriste);
-            
-            setTimeout(() => {
-                caraTriste.remove();
-            }, 2000);
-        }
-
-        // ========== MANEJO DEL FORMULARIO ==========
+    // ========== EFECTOS VISUALES ==========
+    
+    function crearEfectoConfeti() {
+        const colores = ['#8b5cf6', '#ec4899', '#d8b4fe', '#c4b5fd', '#a855f7'];
         
-        document.getElementById('invitation-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const btn = document.getElementById('submit-btn');
-            const confirmation = document.getElementById('confirmation');
-            const originalText = btn.textContent;
-            
-            // Obtener datos del formulario
-            const confirmacion = {
-                nombre: document.getElementById('name').value,
-                contact: document.getElementById('contact').value,
-                guests: document.getElementById('guests').value,
-                alergias: document.getElementById('alergias').value,
-                otrasAlergias: document.getElementById('otrasAlergias').value,
-                preferencias: document.getElementById('preferencias').value,
-                otrasPreferencias: document.getElementById('otrasPreferencias').value,
-                asistencia: document.getElementById('asistencia').value
-            };
-            
-            try {
-                // Efecto visual inmediato
-                btn.textContent = 'ENVIANDO...';
-                btn.disabled = true;
-                
-                // Guardar en GitHub
-                const exito = await guardarEnGitHub(confirmacion);
-                
-                if (exito) {
-                    btn.textContent = '✓ CONFIRMADO';
-                    confirmation.style.display = 'block';
+        for (let i = 0; i < 20; i++) {
+            setTimeout(() => {
+                for (let j = 0; j < 5; j++) {
+                    const confeti = document.createElement('div');
+                    confeti.className = 'confetti';
+                    confeti.style.backgroundColor = colores[Math.floor(Math.random() * colores.length)];
+                    confeti.style.left = Math.random() * 100 + 'vw';
+                    confeti.style.top = '-10px';
+                    confeti.style.setProperty('--tx', (Math.random() * 200 - 100) + 'px');
+                    confeti.style.setProperty('--rot', (Math.random() * 360) + 'deg');
                     
-                    // Efecto según la respuesta
-                    if (confirmacion.asistencia === 'si') {
-                        crearEfectoConfeti();
-                    } else {
-                        crearEfectoTriste();
-                    }
+                    document.body.appendChild(confeti);
                     
-                    // Reiniciar formulario después de 3 segundos
                     setTimeout(() => {
-                        this.reset();
-                        btn.textContent = originalText;
-                        btn.disabled = false;
-                        confirmation.style.display = 'none';
-                    }, 3000);
-                } else {
-                    throw new Error('Error al guardar');
+                        confeti.remove();
+                    }, 2000);
                 }
-            } catch (error) {
-                btn.textContent = 'ERROR - INTENTA DE NUEVO';
+            }, i * 100);
+        }
+    }
+
+    function crearEfectoTriste() {
+        const caraTriste = document.createElement('div');
+        caraTriste.className = 'sad-effect';
+        caraTriste.innerHTML = '😢';
+        document.body.appendChild(caraTriste);
+        
+        setTimeout(() => {
+            caraTriste.remove();
+        }, 2000);
+    }
+
+    // ========== MANEJO DEL FORMULARIO ==========
+    
+    document.getElementById('invitation-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const btn = document.getElementById('submit-btn');
+        const confirmation = document.getElementById('confirmation');
+        const originalText = btn.textContent;
+        
+        // Obtener datos del formulario
+        const confirmacion = {
+            nombre: document.getElementById('name').value,
+            contact: document.getElementById('contact').value,
+            guests: document.getElementById('guests').value,
+            alergias: document.getElementById('alergias').value,
+            otrasAlergias: document.getElementById('otrasAlergias').value,
+            preferencias: document.getElementById('preferencias').value,
+            otrasPreferencias: document.getElementById('otrasPreferencias').value,
+            asistencia: document.getElementById('asistencia').value
+        };
+        
+        try {
+            // Efecto visual inmediato
+            btn.textContent = 'ENVIANDO...';
+            btn.disabled = true;
+            
+            // Guardar en GitHub
+            const exito = await guardarEnGitHub(confirmacion);
+            
+            if (exito) {
+                btn.textContent = '✓ CONFIRMADO';
+                confirmation.style.display = 'block';
+                
+                // Efecto según la respuesta
+                if (confirmacion.asistencia === 'si') {
+                    crearEfectoConfeti();
+                } else {
+                    crearEfectoTriste();
+                }
+                
+                // Reiniciar formulario después de 3 segundos
                 setTimeout(() => {
+                    this.reset();
                     btn.textContent = originalText;
                     btn.disabled = false;
-                }, 2000);
+                    confirmation.style.display = 'none';
+                }, 3000);
+            } else {
+                throw new Error('Error al guardar');
             }
-        });
-
-        // ========== CÓDIGO ORIGINAL EXISTENTE ==========
-        
-        document.addEventListener('DOMContentLoaded', function() {
-            particlesJS('particles-js', {
-                particles: {
-                    number: { value: 80, density: { enable: true, value_area: 800 } },
-                    color: { value: ["#8b5cf6", "#ec4899", "#d8b4fe"] },
-                    shape: { type: "circle" },
-                    opacity: { value: 0.5, random: true },
-                    size: { value: 3, random: true },
-                    line_linked: {
-                        enable: true,
-                        distance: 150,
-                        color: "#8b5cf6",
-                        opacity: 0.4,
-                        width: 1
-                    },
-                    move: {
-                        enable: true,
-                        speed: 2,
-                        direction: "none",
-                        random: true,
-                        straight: false,
-                        out_mode: "out",
-                        bounce: false
-                    }
-                },
-                interactivity: {
-                    detect_on: "canvas",
-                    events: {
-                        onhover: { enable: true, mode: "repulse" },
-                        onclick: { enable: true, mode: "push" },
-                        resize: true
-                    }
-                },
-                retina_detect: true
-            });
-        });
-
-        let audioContext;
-        let audioElement;
-        let isPlaying = false;
-        let audioStarted = false;
-        let youtubeAudio = null;
-        
-        function createLights() {
-            const lightsContainer = document.getElementById('lights');
-            const colors = ['#8b5cf6', '#a855f7', '#c084fc', '#d8b4fe', '#ec4899'];
-            
-            for (let i = 0; i < 20; i++) {
-                const light = document.createElement('div');
-                light.classList.add('light');
-                
-                const size = Math.random() * 150 + 50;
-                light.style.width = `${size}px`;
-                light.style.height = `${size}px`;
-                
-                light.style.left = `${Math.random() * 100}%`;
-                light.style.top = `${Math.random() * 100}%`;
-                
-                light.style.background = colors[Math.floor(Math.random() * colors.length)];
-                
-                light.style.animationDelay = `${Math.random() * 2}s`;
-                light.style.animationDuration = `${Math.random() * 2 + 1}s`;
-                
-                lightsContainer.appendChild(light);
-            }
-        }
-        
-        function vibrate() {
-            document.body.style.transform = 'translateX(5px)';
+        } catch (error) {
+            btn.textContent = 'ERROR - INTENTA DE NUEVO';
             setTimeout(() => {
-                document.body.style.transform = 'translateX(-5px)';
-                setTimeout(() => {
-                    document.body.style.transform = 'translateX(0)';
-                }, 50);
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }, 2000);
+        }
+    });
+
+    // ========== CÓDIGO ORIGINAL EXISTENTE ==========
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        particlesJS('particles-js', {
+            particles: {
+                number: { value: 80, density: { enable: true, value_area: 800 } },
+                color: { value: ["#8b5cf6", "#ec4899", "#d8b4fe"] },
+                shape: { type: "circle" },
+                opacity: { value: 0.5, random: true },
+                size: { value: 3, random: true },
+                line_linked: {
+                    enable: true,
+                    distance: 150,
+                    color: "#8b5cf6",
+                    opacity: 0.4,
+                    width: 1
+                },
+                move: {
+                    enable: true,
+                    speed: 2,
+                    direction: "none",
+                    random: true,
+                    straight: false,
+                    out_mode: "out",
+                    bounce: false
+                }
+            },
+            interactivity: {
+                detect_on: "canvas",
+                events: {
+                    onhover: { enable: true, mode: "repulse" },
+                    onclick: { enable: true, mode: "push" },
+                    resize: true
+                }
+            },
+            retina_detect: true
+        });
+    });
+
+    let audioContext;
+    let audioElement;
+    let isPlaying = false;
+    let audioStarted = false;
+    let youtubeAudio = null;
+    
+    function createLights() {
+        const lightsContainer = document.getElementById('lights');
+        const colors = ['#8b5cf6', '#a855f7', '#c084fc', '#d8b4fe', '#ec4899'];
+        
+        for (let i = 0; i < 20; i++) {
+            const light = document.createElement('div');
+            light.classList.add('light');
+            
+            const size = Math.random() * 150 + 50;
+            light.style.width = `${size}px`;
+            light.style.height = `${size}px`;
+            
+            light.style.left = `${Math.random() * 100}%`;
+            light.style.top = `${Math.random() * 100}%`;
+            
+            light.style.background = colors[Math.floor(Math.random() * colors.length)];
+            
+            light.style.animationDelay = `${Math.random() * 2}s`;
+            light.style.animationDuration = `${Math.random() * 2 + 1}s`;
+            
+            lightsContainer.appendChild(light);
+        }
+    }
+    
+    function vibrate() {
+        document.body.style.transform = 'translateX(5px)';
+        setTimeout(() => {
+            document.body.style.transform = 'translateX(-5px)';
+            setTimeout(() => {
+                document.body.style.transform = 'translateX(0)';
             }, 50);
-        }
+        }, 50);
+    }
+    
+    function setupInputEffects() {
+        const inputs = document.querySelectorAll('input');
         
-        function setupInputEffects() {
-            const inputs = document.querySelectorAll('input');
-            
-            inputs.forEach(input => {
-                input.addEventListener('focus', () => {
-                    vibrate();
-                    input.style.boxShadow = '0 0 20px rgba(139, 92, 246, 1)';
-                });
-                
-                input.addEventListener('input', () => {
-                    if (input.value.length > 2) {
-                        vibrate();
-                    }
-                });
-            });
-        }
-        
-        function setupGiftSection() {
-            const giftOptions = document.querySelectorAll('input[name="gift"]');
-            const transferInfo = document.getElementById('transferInfo');
-            
-            giftOptions.forEach(option => {
-                option.addEventListener('change', function() {
-                    if (this.value === 'no') {
-                        transferInfo.style.display = 'block';
-                        vibrate();
-                    } else {
-                        transferInfo.style.display = 'none';
-                    }
-                });
-            });
-        }
-        
-        function setupCountdown() {
-            const now = new Date();
-            const currentYear = now.getFullYear();
-            const partyDate = new Date(currentYear, 11, 7, 22, 0, 0);
-            
-            if (now > partyDate) {
-                partyDate.setFullYear(currentYear + 1);
-            }
-            
-            function updateCountdown() {
-                const now = new Date();
-                const diff = partyDate - now;
-                
-                if (diff <= 0) {
-                    document.getElementById('days').textContent = '00';
-                    document.getElementById('hours').textContent = '00';
-                    document.getElementById('minutes').textContent = '00';
-                    document.getElementById('seconds').textContent = '00';
-                    return;
-                }
-                
-                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-                
-                document.getElementById('days').textContent = days.toString().padStart(2, '0');
-                document.getElementById('hours').textContent = hours.toString().padStart(2, '0');
-                document.getElementById('minutes').textContent = minutes.toString().padStart(2, '0');
-                document.getElementById('seconds').textContent = seconds.toString().padStart(2, '0');
-            }
-            
-            updateCountdown();
-            setInterval(updateCountdown, 1000);
-        }
-        
-        function loadYouTubeAudio() {
-            const youtubeContainer = document.createElement('div');
-            youtubeContainer.style.display = 'none';
-            youtubeContainer.innerHTML = `
-                <iframe id="youtubeAudio" width="0" height="0" src="https://www.youtube.com/embed/ezhEFXpGh40?autoplay=0&loop=1&playlist=ezhEFXpGh40" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
-            `;
-            document.body.appendChild(youtubeContainer);
-            
-            return document.getElementById('youtubeAudio');
-        }
-        
-        function setupMusic() {
-            audioElement = document.getElementById('backgroundMusic');
-            const musicControl = document.getElementById('musicControl');
-            const audioNotice = document.getElementById('audioNotice');
-            
-            youtubeAudio = loadYouTubeAudio();
-            
-            function startAudio() {
-                if (audioStarted) return;
-                
-                try {
-                    audioElement.volume = 0.5;
-                    const playPromise = audioElement.play();
-                    
-                    if (playPromise !== undefined) {
-                        playPromise.then(() => {
-                            audioStarted = true;
-                            isPlaying = true;
-                            audioNotice.style.display = 'none';
-                        }).catch(error => {
-                            console.log('Audio local falló, usando YouTube');
-                            youtubeAudio.src += "&autoplay=1";
-                            audioStarted = true;
-                            isPlaying = true;
-                            audioNotice.style.display = 'none';
-                        });
-                    }
-                } catch (error) {
-                    console.error('Error al inicializar el audio:', error);
-                    youtubeAudio.src += "&autoplay=1";
-                    audioStarted = true;
-                    isPlaying = true;
-                    audioNotice.style.display = 'none';
-                }
-            }
-            
-            function toggleMute() {
-                if (!audioStarted) return;
-                
-                if (isPlaying) {
-                    audioElement.muted = true;
-                    youtubeAudio.src = youtubeAudio.src.replace("&autoplay=1", "&autoplay=0");
-                    musicControl.innerHTML = '<i class="fas fa-volume-mute"></i>';
-                } else {
-                    audioElement.muted = false;
-                    youtubeAudio.src = youtubeAudio.src.replace("&autoplay=0", "&autoplay=1");
-                    musicControl.innerHTML = '<i class="fas fa-volume-up"></i>';
-                }
-                
-                isPlaying = !isPlaying;
-            }
-            
-            document.body.addEventListener('click', function() {
-                if (!audioStarted) {
-                    startAudio();
-                }
-            });
-            
-            document.body.addEventListener('touchstart', function() {
-                if (!audioStarted) {
-                    startAudio();
-                }
-            });
-            
-            musicControl.addEventListener('click', function() {
-                if (!audioStarted) {
-                    startAudio();
-                    return;
-                }
-                
-                toggleMute();
-            });
-        }
-        
-        window.addEventListener('load', () => {
-            createLights();
-            setupInputEffects();
-            setupGiftSection();
-            setupMusic();
-            setupCountdown();
-            
-            setTimeout(() => {
+        inputs.forEach(input => {
+            input.addEventListener('focus', () => {
                 vibrate();
-            }, 800);
+                input.style.boxShadow = '0 0 20px rgba(139, 92, 246, 1)';
+            });
             
-            setInterval(() => {
-                if (Math.random() > 0.7) {
+            input.addEventListener('input', () => {
+                if (input.value.length > 2) {
                     vibrate();
                 }
-            }, 3000);
+            });
         });
-    </script>
-</body>
+    }
+    
+    function setupGiftSection() {
+        const giftOptions = document.querySelectorAll('input[name="gift"]');
+        const transferInfo = document.getElementById('transferInfo');
+        
+        giftOptions.forEach(option => {
+            option.addEventListener('change', function() {
+                if (this.value === 'no') {
+                    transferInfo.style.display = 'block';
+                    vibrate();
+                } else {
+                    transferInfo.style.display = 'none';
+                }
+            });
+        });
+    }
+    
+    function setupCountdown() {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const partyDate = new Date(currentYear, 11, 7, 22, 0, 0);
+        
+        if (now > partyDate) {
+            partyDate.setFullYear(currentYear + 1);
+        }
+        
+        function updateCountdown() {
+            const now = new Date();
+            const diff = partyDate - now;
+            
+            if (diff <= 0) {
+                document.getElementById('days').textContent = '00';
+                document.getElementById('hours').textContent = '00';
+                document.getElementById('minutes').textContent = '00';
+                document.getElementById('seconds').textContent = '00';
+                return;
+            }
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('days').textContent = days.toString().padStart(2, '0');
+            document.getElementById('hours').textContent = hours.toString().padStart(2, '0');
+            document.getElementById('minutes').textContent = minutes.toString().padStart(2, '0');
+            document.getElementById('seconds').textContent = seconds.toString().padStart(2, '0');
+        }
+        
+        updateCountdown();
+        setInterval(updateCountdown, 1000);
+    }
+    
+    function loadYouTubeAudio() {
+        const youtubeContainer = document.createElement('div');
+        youtubeContainer.style.display = 'none';
+        youtubeContainer.innerHTML = `
+            <iframe id="youtubeAudio" width="0" height="0" src="https://www.youtube.com/embed/ezhEFXpGh40?autoplay=0&loop=1&playlist=ezhEFXpGh40" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+        `;
+        document.body.appendChild(youtubeContainer);
+        
+        return document.getElementById('youtubeAudio');
+    }
+    
+    function setupMusic() {
+        audioElement = document.getElementById('backgroundMusic');
+        const musicControl = document.getElementById('musicControl');
+        const audioNotice = document.getElementById('audioNotice');
+        
+        youtubeAudio = loadYouTubeAudio();
+        
+        function startAudio() {
+            if (audioStarted) return;
+            
+            try {
+                audioElement.volume = 0.5;
+                const playPromise = audioElement.play();
+                
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        audioStarted = true;
+                        isPlaying = true;
+                        audioNotice.style.display = 'none';
+                    }).catch(error => {
+                        console.log('Audio local falló, usando YouTube');
+                        youtubeAudio.src += "&autoplay=1";
+                        audioStarted = true;
+                        isPlaying = true;
+                        audioNotice.style.display = 'none';
+                    });
+                }
+            } catch (error) {
+                console.error('Error al inicializar el audio:', error);
+                youtubeAudio.src += "&autoplay=1";
+                audioStarted = true;
+                isPlaying = true;
+                audioNotice.style.display = 'none';
+            }
+        }
+        
+        function toggleMute() {
+            if (!audioStarted) return;
+            
+            if (isPlaying) {
+                audioElement.muted = true;
+                youtubeAudio.src = youtubeAudio.src.replace("&autoplay=1", "&autoplay=0");
+                musicControl.innerHTML = '<i class="fas fa-volume-mute"></i>';
+            } else {
+                audioElement.muted = false;
+                youtubeAudio.src = youtubeAudio.src.replace("&autoplay=0", "&autoplay=1");
+                musicControl.innerHTML = '<i class="fas fa-volume-up"></i>';
+            }
+            
+            isPlaying = !isPlaying;
+        }
+        
+        document.body.addEventListener('click', function() {
+            if (!audioStarted) {
+                startAudio();
+            }
+        });
+        
+        document.body.addEventListener('touchstart', function() {
+            if (!audioStarted) {
+                startAudio();
+            }
+        });
+        
+        musicControl.addEventListener('click', function() {
+            if (!audioStarted) {
+                startAudio();
+                return;
+            }
+            
+            toggleMute();
+        });
+    }
+    
+    window.addEventListener('load', () => {
+        createLights();
+        setupInputEffects();
+        setupGiftSection();
+        setupMusic();
+        setupCountdown();
+        
+        setTimeout(() => {
+            vibrate();
+        }, 800);
+        
+        setInterval(() => {
+            if (Math.random() > 0.7) {
+                vibrate();
+            }
+        }, 3000);
+    });
+</script>
 </html>
+
+git add index.html
+git commit -m "Agrego autenticación para GitHub API"
+git push origin main
