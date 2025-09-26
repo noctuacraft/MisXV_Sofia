@@ -1,0 +1,28 @@
+# Archivos de confirmaciones (¡IMPORTANTE!)
+confirmaciones.txt
+
+# Archivos de entorno (variables sensibles)
+.env
+.env.local
+.env.production
+
+# Logs
+*.log
+npm-debug.log*
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Archivos temporales
+*.tmp
+*.temp
+
+# Archivos de IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Dependencias (si agregas JavaScript)
+node_modules/
