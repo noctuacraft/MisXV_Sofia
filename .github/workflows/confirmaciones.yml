@@ -4,9 +4,6 @@ on:
   repository_dispatch:
     types: [nueva_confirmacion]
 
-env:
-  GH_TOKEN: ${{ secrets.GH_ACTIONS_TOKEN }}
-
 jobs:
   procesar-confirmacion:
     runs-on: ubuntu-latest
@@ -14,38 +11,37 @@ jobs:
       - name: 🚀 Checkout del código
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GH_ACTIONS_TOKEN }}
+          token: ${{ secrets.GH_ACTIONS_TOKEN }}  # ← Este es el MISXV-ACTIONS-TOKEN
           
       - name: 🔐 Actualizar y encriptar confirmaciones
         run: |
           # Crear el archivo si no existe
           if [ ! -f confirmaciones.txt ]; then
-            echo "🎉 LISTA DE CONFIRMACIONES XV IARA 🎉" > confirmaciones.txt
+            echo "🎉 LISTA DE CONFIRMACIONES XV SOFÍA 🎉" > confirmaciones.txt
             echo "======================================" >> confirmaciones.txt
-            echo "Fecha de creación: $(date)" >> confirmaciones.txt
             echo "" >> confirmaciones.txt
           fi
           
           # Agregar nueva confirmación
           echo "👤 NOMBRE: ${{ github.event.client_payload.confirmacion.nombre }}" >> confirmaciones.txt
-          echo "📧 EMAIL: ${{ github.event.client_payload.confirmacion.email }}" >> confirmaciones.txt
+          echo "📧 CONTACTO: ${{ github.event.client_payload.confirmacion.email }}" >> confirmaciones.txt
           echo "✅ ASISTENCIA: ${{ github.event.client_payload.confirmacion.asistencia }}" >> confirmaciones.txt
           echo "👥 ACOMPAÑANTES: ${{ github.event.client_payload.confirmacion.acompanantes }}" >> confirmaciones.txt
+          echo "⚠️ ALERGIAS: ${{ github.event.client_payload.confirmacion.alergias }}" >> confirmaciones.txt
+          echo "🍽️ PREFERENCIAS: ${{ github.event.client_payload.confirmacion.preferencias }}" >> confirmaciones.txt
           echo "📅 FECHA: ${{ github.event.client_payload.confirmacion.fecha }}" >> confirmaciones.txt
           echo "-----------------------------------------" >> confirmaciones.txt
           echo "" >> confirmaciones.txt
           
           # Encriptar el archivo
-          echo "🔒 Encriptando archivo..."
           openssl enc -aes-256-cbc -salt -in confirmaciones.txt -out confirmaciones.enc -pass pass:${{ secrets.DO_NOT_STOLE }}
           
           # Configurar Git
           git config --global user.email "actions@github.com"
-          git config --global user.name "GitHub Actions Bot"
+          git config --global user.name "GitHub Actions"
           
       - name: 📤 Subir cambios al repositorio
         run: |
-          # Agregar y commitear solo el archivo encriptado
           git add confirmaciones.enc
-          git commit -m "🔐 Nueva confirmación encriptada - ${{ github.event.client_payload.confirmacion.nombre }}"
-          git push origin main
+          git commit -m "🔐 Nueva confirmación - ${{ github.event.client_payload.confirmacion.nombre }}"
+          git push

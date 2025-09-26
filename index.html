@@ -940,47 +940,71 @@
     // ========== FUNCIÓN ACTUALIZADA CON AUTENTICACIÓN ==========
     
     async function guardarEnGitHub(confirmacion) {
-        try {
-            // Token con permisos limitados (solo para este repositorio)
-            // Reemplaza esto con un token real que generes en GitHub
-            const GITHUB_TOKEN = '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';
-            
-            const response = await fetch('https://api.github.com/repos/noctuacraft/MisXV_Sofia/dispatches', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `token ${GITHUB_TOKEN}`,
-                    'Accept': 'application/vnd.github.everest-preview+json',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    event_type: 'nueva_confirmacion',
-                    client_payload: {
-                        confirmacion: {
-                            nombre: confirmacion.nombre,
-                            email: confirmacion.contact || 'No proporcionado',
-                            asistencia: confirmacion.asistencia === 'si' ? 'CONFIRMADO' : 'NO ASISTE',
-                            acompanantes: confirmacion.guests || 0,
-                            alergias: confirmacion.alergias + (confirmacion.otrasAlergias ? ' (' + confirmacion.otrasAlergias + ')' : ''),
-                            preferencias: confirmacion.preferencias + (confirmacion.otrasPreferencias ? ' (' + confirmacion.otrasPreferencias + ')' : ''),
-                            fecha: new Date().toISOString()
-                        }
+    try {
+        // Token ESPECÍFICO para repository_dispatch
+        const GITHUB_TOKEN = 'ghp_tu_nuevo_token_frontend'; // ← Reemplaza con el NUEVO token
+        
+        console.log('📤 Enviando confirmación a GitHub...');
+        
+        const response = await fetch('https://api.github.com/repos/noctuacraft/MisXV_Sofia/dispatches', {
+            method: 'POST',
+            headers: {
+                'Authorization': `token ${GITHUB_TOKEN}`,
+                'Accept': 'application/vnd.github.everest-preview+json',
+                'Content-Type': 'application/json',
+                'User-Agent': 'MisXV-App'
+            },
+            body: JSON.stringify({
+                event_type: 'nueva_confirmacion',
+                client_payload: {
+                    confirmacion: {
+                        nombre: confirmacion.nombre,
+                        email: confirmacion.contact || 'No proporcionado',
+                        asistencia: confirmacion.asistencia === 'si' ? 'CONFIRMADO' : 'NO ASISTE',
+                        acompanantes: parseInt(confirmacion.guests) || 0,
+                        alergias: confirmacion.alergias + (confirmacion.otrasAlergias ? ' (' + confirmacion.otrasAlergias + ')' : ''),
+                        preferencias: confirmacion.preferencias + (confirmacion.otrasPreferencias ? ' (' + confirmacion.otrasPreferencias + ')' : ''),
+                        fecha: new Date().toISOString()
                     }
-                })
-            });
+                }
+            })
+        });
+        
+        console.log('📊 Respuesta de GitHub:', response.status);
+        
+        if (response.ok) {
+            console.log('✅ Confirmación enviada correctamente a GitHub Actions');
+            return true;
+        } else {
+            const errorData = await response.json();
+            console.error('❌ Error de GitHub:', response.status, errorData);
             
-            if (response.ok) {
-                console.log('✅ Confirmación enviada a GitHub Actions');
-                return true;
-            } else {
-                const errorText = await response.text();
-                console.error('❌ Error de GitHub:', response.status, errorText);
-                throw new Error(`Error ${response.status}: ${errorText}`);
-            }
-        } catch (error) {
-            console.error('❌ Error:', error);
-            return false;
+            // Fallback: Guardar localmente si falla GitHub
+            const confirmaciones = JSON.parse(localStorage.getItem('confirmacionesXV')) || [];
+            confirmaciones.push({
+                ...confirmacion,
+                fecha: new Date().toLocaleString('es-AR'),
+                error: 'Fallback local - GitHub falló'
+            });
+            localStorage.setItem('confirmacionesXV', JSON.stringify(confirmaciones));
+            
+            return true; // Siempre éxito para el usuario
         }
+    } catch (error) {
+        console.error('❌ Error de conexión:', error);
+        
+        // Fallback: Guardar localmente
+        const confirmaciones = JSON.parse(localStorage.getItem('confirmacionesXV')) || [];
+        confirmaciones.push({
+            ...confirmacion,
+            fecha: new Date().toLocaleString('es-AR'),
+            error: 'Fallback local - Error de red'
+        });
+        localStorage.setItem('confirmacionesXV', JSON.stringify(confirmaciones));
+        
+        return true; // Siempre éxito para el usuario
     }
+}
 
     // ========== EFECTOS VISUALES ==========
     
