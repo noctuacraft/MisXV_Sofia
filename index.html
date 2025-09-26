@@ -1034,9 +1034,9 @@
 <script>
     // ========== CONFIGURACIÓN ==========
     const TOKEN_INVITACION_VALIDO = "XVSOFIA2025";
-    const GITHUB_TOKEN = "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"; // REEMPLAZA CON TU TOKEN
-    const REPO_OWNER = "noctuacraft"; // Tu usuario de GitHub
-    const REPO_NAME = "MisXV_Sofia"; // Tu repositorio
+    const GITHUB_TOKEN = "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"; // REEMPLAZA CON TU TOKEN
+    const REPO_OWNER = "noctuacraft"; // Tu usuario de GitHub CORREGIDO
+    const REPO_NAME = "MisXV_Sofia"; // Tu repositorio CORREGIDO
     const ARCHIVO_CONFIRMACIONES = "confirmaciones.txt";
 
     // ========== VARIABLES GLOBALES ==========
@@ -1064,7 +1064,7 @@
         return token === TOKEN_INVITACION_VALIDO;
     }
 
-    // ========== FUNCIÓN PARA GUARDAR EN GITHUB ==========
+    // ========== FUNCIÓN CORREGIDA PARA GUARDAR EN GITHUB ==========
     async function guardarEnGitHub(confirmacion) {
         try {
             // 1. Obtener el archivo actual de confirmaciones
@@ -1077,46 +1077,47 @@
             try {
                 const responseGet = await fetch(urlGet, {
                     headers: {
-                        'Authorization': `token ${GITHUB_TOKEN}`,
-                        'Accept': 'application/vnd.github.v3+json'
+                        'Authorization': `Bearer ${GITHUB_TOKEN}`,
+                        'Accept': 'application/vnd.github.v3+json',
+                        'User-Agent': 'XV-Sofia-App'
                     }
                 });
                 
                 if (responseGet.ok) {
                     const data = await responseGet.json();
-                    contenidoActual = atob(data.content); // Decodificar base64
-                    sha = data.sha; // Necesario para actualizar el archivo
+                    // Decodificar base64 correctamente
+                    contenidoActual = decodeBase64(data.content);
+                    sha = data.sha;
                 }
             } catch (error) {
                 console.log('Creando archivo nuevo...');
             }
             
-            // 2. Agregar la nueva confirmación
-            contenidoActual += `👤 NOMBRE: ${confirmacion.nombre}\n`;
-            contenidoActual += `📧 CONTACTO: ${confirmacion.contact}\n`;
-            contenidoActual += `✅ ASISTENCIA: ${confirmacion.asistencia === 'si' ? 'CONFIRMADO' : 'NO ASISTE'}\n`;
-            contenidoActual += `👥 ACOMPAÑANTES: ${confirmacion.guests}\n`;
-            contenidoActual += `⚠️ ALERGIAS: ${confirmacion.alergias}${confirmacion.otrasAlergias ? ` - ${confirmacion.otrasAlergias}` : ''}\n`;
-            contenidoActual += `🍽️ PREFERENCIAS: ${confirmacion.preferencias}${confirmacion.otrasPreferencias ? ` - ${confirmacion.otrasPreferencias}` : ''}\n`;
-            contenidoActual += `📅 FECHA CONFIRMACIÓN: ${confirmacion.timestamp}\n`;
+            // 2. Agregar la nueva confirmación (sin emojis problemáticos)
+            contenidoActual += `NOMBRE: ${confirmacion.nombre}\n`;
+            contenidoActual += `CONTACTO: ${confirmacion.contact}\n`;
+            contenidoActual += `ASISTENCIA: ${confirmacion.asistencia === 'si' ? 'CONFIRMADO' : 'NO ASISTE'}\n`;
+            contenidoActual += `ACOMPAÑANTES: ${confirmacion.guests}\n`;
+            contenidoActual += `ALERGIAS: ${confirmacion.alergias}${confirmacion.otrasAlergias ? ` - ${confirmacion.otrasAlergias}` : ''}\n`;
+            contenidoActual += `PREFERENCIAS: ${confirmacion.preferencias}${confirmacion.otrasPreferencias ? ` - ${confirmacion.otrasPreferencias}` : ''}\n`;
+            contenidoActual += `FECHA: ${confirmacion.timestamp}\n`;
             contenidoActual += "-----------------------------------------\n\n";
             
-            // 3. Codificar contenido en base64
-            const contenidoCodificado = btoa(contenidoActual);
+            // 3. Codificar contenido en base64 CORRECTAMENTE
+            const contenidoCodificado = encodeBase64(contenidoActual);
             
             // 4. Subir/actualizar el archivo en GitHub
             const urlPut = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${ARCHIVO_CONFIRMACIONES}`;
             
             const payload = {
-                message: `✅ Nueva confirmación - ${confirmacion.nombre}`,
+                message: `Nueva confirmacion - ${confirmacion.nombre}`,
                 content: contenidoCodificado,
                 committer: {
                     name: "XV Sofia Bot",
-                    email: "actions@github.com"
+                    email: "bot@xvsofia.com"
                 }
             };
             
-            // Si el archivo ya existe, agregamos el SHA para actualizarlo
             if (sha) {
                 payload.sha = sha;
             }
@@ -1124,9 +1125,10 @@
             const response = await fetch(urlPut, {
                 method: 'PUT',
                 headers: {
-                    'Authorization': `token ${GITHUB_TOKEN}`,
+                    'Authorization': `Bearer ${GITHUB_TOKEN}`,
                     'Accept': 'application/vnd.github.v3+json',
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'XV-Sofia-App'
                 },
                 body: JSON.stringify(payload)
             });
@@ -1136,13 +1138,33 @@
                 return { exito: true, mensaje: 'Confirmación guardada en GitHub' };
             } else {
                 const errorData = await response.json();
-                throw new Error(errorData.message || 'Error al guardar en GitHub');
+                console.error('Error de GitHub:', errorData);
+                throw new Error(errorData.message || 'Error 401 - Token inválido');
             }
             
         } catch (error) {
             console.error('❌ Error al guardar en GitHub:', error);
             throw error;
         }
+    }
+
+    // ========== FUNCIONES BASE64 CORREGIDAS ==========
+    function encodeBase64(str) {
+        // Método más robusto para base64
+        if (typeof btoa === 'function') {
+            return btoa(unescape(encodeURIComponent(str)));
+        }
+        // Fallback para Node.js o entornos sin btoa
+        return Buffer.from(str, 'utf8').toString('base64');
+    }
+
+    function decodeBase64(str) {
+        // Método más robusto para base64
+        if (typeof atob === 'function') {
+            return decodeURIComponent(escape(atob(str)));
+        }
+        // Fallback para Node.js o entornos sin atob
+        return Buffer.from(str, 'base64').toString('utf8');
     }
 
     // ========== FUNCIÓN PRINCIPAL DE CONFIRMACIÓN ==========
@@ -1348,7 +1370,7 @@
                 confirmation.style.display = 'block';
                 
                 const mensajeExito = confirmacionPendiente.asistencia === 'si' 
-                    ? `¡Gracias ${confirmacionPendiente.nombre}! Confirmación guardada en GitHub. 🎉` 
+                    ? `¡Gracias ${confirmacionPendiente.nombre}! Confirmación guardada. 🎉` 
                     : `Lamentamos que no puedas asistir, ${confirmacionPendiente.nombre}. 😔`;
                 
                 mostrarMensaje(mensajeExito, false);
@@ -1373,7 +1395,7 @@
         } catch (error) {
             console.error('Error en el proceso:', error);
             ocultarModalToken();
-            mostrarMensaje('❌ Error al procesar. Intenta más tarde.', true);
+            mostrarMensaje('❌ Error al guardar en GitHub. Se guardó localmente.', true);
             
             btn.textContent = 'ERROR - INTENTA DE NUEVO';
             setTimeout(() => {
@@ -1383,6 +1405,7 @@
         }
     });
 
+    // ... (el resto del código se mantiene igual)
     document.getElementById('tokenCancel').addEventListener('click', function() {
         ocultarModalToken();
         const btn = document.getElementById('submit-btn');
@@ -1444,7 +1467,6 @@
         });
     });
 
-    // ... (el resto del código de partículas, música, etc. se mantiene igual)
     let audioContext;
     let audioElement;
     let isPlaying = false;
