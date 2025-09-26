@@ -1060,22 +1060,17 @@
         return token === TOKEN_INVITACION_VALIDO;
     }
 
-    // ========== FUNCIÓN SIMPLIFICADA SIN GITHUB API ==========
-    async function guardarConfirmacion(confirmacion) {
-        return new Promise((resolve, reject) => {
-            try {
-                console.log('💾 Guardando confirmación localmente...');
-                
-                // Simulamos un guardado exitoso (en un caso real, aquí iría tu lógica)
-                setTimeout(() => {
-                    console.log('✅ Confirmación procesada:', confirmacion);
-                    resolve(true);
-                }, 1000);
-                
-            } catch (error) {
-                console.error('❌ Error al guardar:', error);
-                reject(error);
-            }
+    // ========== FUNCIÓN SIMPLIFICADA - SIN GITHUB ==========
+    function procesarConfirmacion(confirmacion) {
+        return new Promise((resolve) => {
+            console.log('💾 Procesando confirmación...', confirmacion);
+            
+            // Simulamos un procesamiento exitoso
+            setTimeout(() => {
+                // Aquí podrías agregar lógica para guardar en localStorage o mostrar resumen
+                console.log('✅ Confirmación exitosa para:', confirmacion.nombre);
+                resolve({ exito: true, mensaje: 'Confirmación procesada correctamente' });
+            }, 1500);
         });
     }
 
@@ -1118,6 +1113,7 @@
     function crearEfectoErrorToken() {
         const modal = document.getElementById('tokenModal');
         
+        // Agregar animación shake si no existe
         if (!document.querySelector('#shake-style')) {
             const style = document.createElement('style');
             style.id = 'shake-style';
@@ -1138,7 +1134,12 @@
     }
 
     function mostrarMensaje(mensaje, esError = false) {
+        // Remover mensajes anteriores
+        const mensajesAnteriores = document.querySelectorAll('.mensaje-flotante');
+        mensajesAnteriores.forEach(msg => msg.remove());
+        
         const mensajeDiv = document.createElement('div');
+        mensajeDiv.className = 'mensaje-flotante';
         mensajeDiv.style.cssText = `
             position: fixed;
             top: 20px;
@@ -1153,12 +1154,15 @@
             animation: fadeIn 0.3s;
             text-align: center;
             max-width: 90%;
+            border: 2px solid ${esError ? '#ec4899' : '#8b5cf6'};
+            box-shadow: 0 0 20px ${esError ? 'rgba(236, 72, 153, 0.5)' : 'rgba(139, 92, 246, 0.5)'};
         `;
         mensajeDiv.textContent = mensaje;
         
-        if (!document.querySelector('#fadeIn-style')) {
+        // Agregar estilos de animación si no existen
+        if (!document.querySelector('#animaciones-mensajes')) {
             const style = document.createElement('style');
-            style.id = 'fadeIn-style';
+            style.id = 'animaciones-mensajes';
             style.textContent = `
                 @keyframes fadeIn {
                     from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
@@ -1177,7 +1181,9 @@
         setTimeout(() => {
             mensajeDiv.style.animation = 'fadeOut 0.3s forwards';
             setTimeout(() => {
-                mensajeDiv.remove();
+                if (mensajeDiv.parentNode) {
+                    mensajeDiv.remove();
+                }
             }, 300);
         }, 3000);
     }
@@ -1205,7 +1211,8 @@
             otrasAlergias: document.getElementById('otrasAlergias').value,
             preferencias: document.getElementById('preferencias').value,
             otrasPreferencias: document.getElementById('otrasPreferencias').value,
-            asistencia: asistencia
+            asistencia: asistencia,
+            timestamp: new Date().toLocaleString('es-AR')
         };
         
         // Mostrar modal para token de INVITACIÓN
@@ -1239,42 +1246,54 @@
             btn.textContent = 'ENVIANDO...';
             btn.disabled = true;
             
-            // Guardar confirmación (versión simplificada)
-            await guardarConfirmacion(confirmacionPendiente);
+            // Procesar confirmación (SIN GitHub)
+            const resultado = await procesarConfirmacion(confirmacionPendiente);
             
-            // ÉXITO
-            ocultarModalToken();
-            btn.textContent = '✓ CONFIRMADO';
-            confirmation.style.display = 'block';
-            
-            // Mostrar resumen de la confirmación
-            const mensajeExito = confirmacionPendiente.asistencia === 'si' 
-                ? `¡Gracias ${confirmacionPendiente.nombre}! Estás confirmado para la fiesta.` 
-                : `Lamentamos que no puedas asistir, ${confirmacionPendiente.nombre}.`;
-            
-            mostrarMensaje(mensajeExito, false);
-            
-            // Efecto según la respuesta
-            if (confirmacionPendiente.asistencia === 'si') {
-                crearEfectoConfeti();
-            } else {
-                crearEfectoTriste();
+            if (resultado.exito) {
+                // ÉXITO
+                ocultarModalToken();
+                btn.textContent = '✓ CONFIRMADO';
+                confirmation.style.display = 'block';
+                
+                // Mostrar resumen de la confirmación
+                const mensajeExito = confirmacionPendiente.asistencia === 'si' 
+                    ? `¡Gracias ${confirmacionPendiente.nombre}! Estás confirmado para la fiesta. 🎉` 
+                    : `Lamentamos que no puedas asistir, ${confirmacionPendiente.nombre}. 😔`;
+                
+                mostrarMensaje(mensajeExito, false);
+                
+                // Efecto según la respuesta
+                if (confirmacionPendiente.asistencia === 'si') {
+                    crearEfectoConfeti();
+                } else {
+                    crearEfectoTriste();
+                }
+                
+                // Opcional: Guardar en localStorage para referencia
+                try {
+                    const confirmaciones = JSON.parse(localStorage.getItem('confirmacionesXV')) || [];
+                    confirmaciones.push(confirmacionPendiente);
+                    localStorage.setItem('confirmacionesXV', JSON.stringify(confirmaciones));
+                    console.log('📋 Confirmación guardada localmente');
+                } catch (e) {
+                    console.log('⚠️ No se pudo guardar localmente');
+                }
+                
+                // Reiniciar formulario después de 3 segundos
+                setTimeout(() => {
+                    document.getElementById('invitation-form').reset();
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                    confirmation.style.display = 'none';
+                    confirmacionPendiente = null;
+                }, 3000);
             }
-            
-            // Reiniciar formulario después de 3 segundos
-            setTimeout(() => {
-                document.getElementById('invitation-form').reset();
-                btn.textContent = originalText;
-                btn.disabled = false;
-                confirmation.style.display = 'none';
-                confirmacionPendiente = null;
-            }, 3000);
             
         } catch (error) {
             // ERROR
             console.error('Error en el proceso:', error);
             ocultarModalToken();
-            mostrarMensaje('❌ Error al enviar. Intenta más tarde.', true);
+            mostrarMensaje('❌ Error al procesar. Intenta más tarde.', true);
             
             btn.textContent = 'ERROR - INTENTA DE NUEVO';
             setTimeout(() => {
@@ -1289,6 +1308,7 @@
         const btn = document.getElementById('submit-btn');
         btn.disabled = false;
         confirmacionPendiente = null;
+        mostrarMensaje('Confirmación cancelada', true);
     });
 
     document.getElementById('tokenInput').addEventListener('keypress', function(e) {
