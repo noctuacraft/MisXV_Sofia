@@ -1032,97 +1032,60 @@
 
 <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
 <script>
-   // ========== CONFIGURACIÓN ==========
-const TOKEN_INVITACION_VALIDO = "XVSOFIA2025";
-const GITHUB_TOKEN = "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"; // REEMPLAZA CON EL TOKEN CLASSIC
-const REPO_OWNER = "noctuacraft";
-const REPO_NAME = "MisXV_Sofia";
+    // ========== CONFIGURACIÓN ==========
+    const TOKEN_INVITACION_VALIDO = "XVSOFIA2025";
 
-// ========== FUNCIÓN PARA DISPARAR WORKFLOW ==========
-async function dispararWorkflowGitHub(confirmacion) {
-    try {
-        console.log('🚀 Disparando workflow...');
+    // ========== VARIABLES GLOBALES ==========
+    let confirmacionPendiente = null;
+
+    // ========== MANEJO DEL MODAL DE TOKEN ==========
+    function mostrarModalToken() {
+        const modal = document.getElementById('tokenModal');
+        const tokenInput = document.getElementById('tokenInput');
         
-        const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/dispatches`;
+        modal.style.display = 'block';
+        tokenInput.value = '';
+        tokenInput.focus();
         
-        const payload = {
-            event_type: "nueva_confirmacion",
-            client_payload: {
-                confirmacion: {
-                    nombre: confirmacion.nombre,
-                    email: confirmacion.contact,
-                    asistencia: confirmacion.asistencia === 'si' ? 'SI' : 'NO',
-                    acompanantes: confirmacion.guests,
-                    alergias: confirmacion.alergias + (confirmacion.otrasAlergias ? ` - ${confirmacion.otrasAlergias}` : ''),
-                    preferencias: confirmacion.preferencias + (confirmacion.otrasPreferencias ? ` - ${confirmacion.otrasPreferencias}` : ''),
-                    fecha: confirmacion.timestamp
-                }
-            }
-        };
-        
-        console.log('📤 Payload:', payload);
-        
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Authorization': `token ${GITHUB_TOKEN}`,
-                'Accept': 'application/vnd.github.v3+json',
-                'Content-Type': 'application/json',
-                'User-Agent': 'XV-Sofia-App'
-            },
-            body: JSON.stringify(payload)
-        });
-        
-        console.log('📥 Response status:', response.status);
-        
-        if (response.status === 204) {
-            console.log('✅ Workflow disparado exitosamente');
-            return { exito: true, mensaje: 'Confirmación enviada al servidor' };
-        } else {
-            const errorText = await response.text();
-            console.error('❌ Error del servidor:', errorText);
-            throw new Error(`Error ${response.status}: ${errorText}`);
-        }
-        
-    } catch (error) {
-        console.error('❌ Error al disparar workflow:', error);
-        throw error;
+        document.body.style.overflow = 'hidden';
     }
-}
 
-// ========== FUNCIÓN PRINCIPAL ACTUALIZADA ==========
-async function procesarConfirmacion(confirmacion) {
-    return new Promise(async (resolve) => {
-        console.log('💾 Procesando confirmación...', confirmacion);
-        
-        try {
-            // Primero intentar con GitHub Actions
-            const resultado = await dispararWorkflowGitHub(confirmacion);
-            resolve(resultado);
+    function ocultarModalToken() {
+        const modal = document.getElementById('tokenModal');
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+
+    function validarTokenInvitacion(token) {
+        return token === TOKEN_INVITACION_VALIDO;
+    }
+
+    // ========== FUNCIÓN SIMPLIFICADA - SOLO LOCALSTORAGE ==========
+    async function procesarConfirmacion(confirmacion) {
+        return new Promise((resolve) => {
+            console.log('💾 Guardando confirmación...', confirmacion);
             
-        } catch (error) {
-            // Fallback a localStorage
             try {
+                // SOLO guardar en localStorage - NADA de descargas
                 const confirmaciones = JSON.parse(localStorage.getItem('confirmacionesXV')) || [];
                 confirmaciones.push(confirmacion);
                 localStorage.setItem('confirmacionesXV', JSON.stringify(confirmaciones));
                 
-                console.log('⚠️ Guardado en localStorage (fallback)');
-                resolve({ 
-                    exito: true, 
-                    mensaje: 'Confirmación guardada localmente' 
-                });
-            } catch (localError) {
+                console.log('✅ Confirmación guardada en localStorage');
+                resolve({ exito: true, mensaje: 'Confirmación guardada correctamente' });
+                
+            } catch (error) {
+                console.error('❌ Error al guardar:', error);
                 resolve({ 
                     exito: false, 
                     mensaje: 'Error al guardar la confirmación' 
                 });
             }
-        }
-    });
-}
-    // ========== FUNCIÓN PARA VER CONFIRMACIONES ==========
-    function verConfirmaciones() {
+        });
+    }
+
+    // ========== FUNCIÓN PARA EXPORTAR CONFIRMACIONES ==========
+    function exportarConfirmaciones() {
         const confirmaciones = JSON.parse(localStorage.getItem('confirmacionesXV')) || [];
         
         if (confirmaciones.length === 0) {
@@ -1130,26 +1093,35 @@ async function procesarConfirmacion(confirmacion) {
             return;
         }
         
-        let resumen = `Tienes ${confirmaciones.length} confirmaciones:\n\n`;
+        // Crear contenido TXT
+        let contenidoTXT = "CONFIRMACIONES XV SOFIA\n";
+        contenidoTXT += "=======================\n\n";
+        
         confirmaciones.forEach((conf, index) => {
-            resumen += `${index + 1}. ${conf.nombre} - ${conf.asistencia === 'si' ? '✅ CONFIRMADO' : '❌ NO ASISTE'}\n`;
+            contenidoTXT += `CONFIRMACION #${index + 1}:\n`;
+            contenidoTXT += `Nombre: ${conf.nombre}\n`;
+            contenidoTXT += `Contacto: ${conf.contact}\n`;
+            contenidoTXT += `Asistencia: ${conf.asistencia === 'si' ? 'SI' : 'NO'}\n`;
+            contenidoTXT += `Acompañantes: ${conf.guests}\n`;
+            contenidoTXT += `Alergias: ${conf.alergias}${conf.otrasAlergias ? ' - ' + conf.otrasAlergias : ''}\n`;
+            contenidoTXT += `Preferencias: ${conf.preferencias}${conf.otrasPreferencias ? ' - ' + conf.otrasPreferencias : ''}\n`;
+            contenidoTXT += `Fecha: ${conf.timestamp}\n`;
+            contenidoTXT += "------------------------\n\n";
         });
         
-        alert(resumen);
-        
-        // Descargar backup
-        const blob = new Blob([JSON.stringify(confirmaciones, null, 2)], { 
-            type: 'application/json;charset=utf-8' 
-        });
+        // Descargar como TXT
+        const blob = new Blob([contenidoTXT], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `backup-confirmaciones-${new Date().toISOString().split('T')[0]}.json`;
+        a.download = 'confirmaciones-xv.txt';
         a.style.display = 'none';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        
+        alert(`Se exportaron ${confirmaciones.length} confirmaciones a TXT`);
     }
 
     // ========== EFECTOS VISUALES ==========
@@ -1382,12 +1354,12 @@ async function procesarConfirmacion(confirmacion) {
         }
     });
 
-    // ========== BOTÓN PARA VER CONFIRMACIONES ==========
-    function agregarBotonVerConfirmaciones() {
-        const verBtn = document.createElement('button');
-        verBtn.textContent = '👁️ VER CONFIRMACIONES';
-        verBtn.id = 'btn-ver-confirmaciones';
-        verBtn.style.cssText = `
+    // ========== BOTÓN PARA EXPORTAR CONFIRMACIONES ==========
+    function agregarBotonExportar() {
+        const exportBtn = document.createElement('button');
+        exportBtn.textContent = '💾 EXPORTAR TXT';
+        exportBtn.id = 'btn-exportar';
+        exportBtn.style.cssText = `
             position: fixed;
             bottom: 100px;
             right: 20px;
@@ -1404,19 +1376,60 @@ async function procesarConfirmacion(confirmacion) {
             font-size: 14px;
         `;
         
-        verBtn.addEventListener('mouseenter', function() {
+        exportBtn.addEventListener('mouseenter', function() {
             this.style.transform = 'scale(1.1)';
             this.style.boxShadow = '0 0 25px rgba(139, 92, 246, 0.9)';
         });
         
-        verBtn.addEventListener('mouseleave', function() {
+        exportBtn.addEventListener('mouseleave', function() {
             this.style.transform = 'scale(1)';
             this.style.boxShadow = '0 0 15px rgba(139, 92, 246, 0.7)';
         });
         
-        verBtn.addEventListener('click', verConfirmaciones);
-        document.body.appendChild(verBtn);
+        exportBtn.addEventListener('click', exportarConfirmaciones);
+        document.body.appendChild(exportBtn);
     }
+
+    // ========== CÓDIGO ORIGINAL (partículas, música, etc.) ==========
+    document.addEventListener('DOMContentLoaded', function() {
+        particlesJS('particles-js', {
+            particles: {
+                number: { value: 80, density: { enable: true, value_area: 800 } },
+                color: { value: ["#8b5cf6", "#ec4899", "#d8b4fe"] },
+                shape: { type: "circle" },
+                opacity: { value: 0.5, random: true },
+                size: { value: 3, random: true },
+                line_linked: {
+                    enable: true,
+                    distance: 150,
+                    color: "#8b5cf6",
+                    opacity: 0.4,
+                    width: 1
+                },
+                move: {
+                    enable: true,
+                    speed: 2,
+                    direction: "none",
+                    random: true,
+                    straight: false,
+                    out_mode: "out",
+                    bounce: false
+                }
+            },
+            interactivity: {
+                detect_on: "canvas",
+                events: {
+                    onhover: { enable: true, mode: "repulse" },
+                    onclick: { enable: true, mode: "push" },
+                    resize: true
+                }
+            },
+            retina_detect: true
+        });
+        
+        // Agregar botón para exportar
+        agregarBotonExportar();
+    });
 
     // ========== CÓDIGO ORIGINAL (partículas, música, etc.) ==========
     document.addEventListener('DOMContentLoaded', function() {
