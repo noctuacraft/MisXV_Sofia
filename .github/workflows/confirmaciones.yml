@@ -1,4 +1,4 @@
-name: 📝 Actualizar Confirmaciones XV Sofia
+name: 📝 Actualizar Confirmaciones Encriptadas
 
 on:
   repository_dispatch:
@@ -7,7 +7,6 @@ on:
 jobs:
   procesar-confirmacion:
     runs-on: ubuntu-latest
-    
     steps:
       - name: 🚀 Checkout del código
         uses: actions/checkout@v4
@@ -34,10 +33,6 @@ jobs:
           echo "-----------------------------------------" >> confirmaciones.txt
           echo "" >> confirmaciones.txt
           
-          # Mostrar contenido (para debug)
-          echo "📄 Contenido actual del archivo:"
-          cat confirmaciones.txt
-          
           # Encriptar el archivo
           openssl enc -aes-256-cbc -salt -in confirmaciones.txt -out confirmaciones.enc -pass pass:${{ secrets.DO_NOT_STOLE }}
           
@@ -47,6 +42,6 @@ jobs:
           
       - name: 📤 Subir cambios al repositorio
         run: |
-          git add confirmaciones.txt confirmaciones.enc
+          git add confirmaciones.enc
           git commit -m "🔐 Nueva confirmación - ${{ github.event.client_payload.confirmacion.nombre }}"
           git push

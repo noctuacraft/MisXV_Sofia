@@ -1034,6 +1034,8 @@
 <script>
     // ========== CONFIGURACIÓN ==========
     const TOKEN_INVITACION_VALIDO = "XVSOFIA2025";
+    const GITHUB_REPO_OWNER = "noctuacraft"; // Tu usuario de GitHub
+    const GITHUB_REPO_NAME = "MisXV_Sofia"; // Tu repositorio
 
     // ========== VARIABLES GLOBALES ==========
     let confirmacionPendiente = null;
@@ -1060,68 +1062,100 @@
         return token === TOKEN_INVITACION_VALIDO;
     }
 
-    // ========== FUNCIÓN SIMPLIFICADA - SOLO LOCALSTORAGE ==========
-    async function procesarConfirmacion(confirmacion) {
-        return new Promise((resolve) => {
-            console.log('💾 Guardando confirmación...', confirmacion);
-            
-            try {
-                // SOLO guardar en localStorage - NADA de descargas
-                const confirmaciones = JSON.parse(localStorage.getItem('confirmacionesXV')) || [];
-                confirmaciones.push(confirmacion);
-                localStorage.setItem('confirmacionesXV', JSON.stringify(confirmaciones));
-                
-                console.log('✅ Confirmación guardada en localStorage');
-                resolve({ exito: true, mensaje: 'Confirmación guardada correctamente' });
-                
-            } catch (error) {
-                console.error('❌ Error al guardar:', error);
-                resolve({ 
-                    exito: false, 
-                    mensaje: 'Error al guardar la confirmación' 
-                });
-            }
-        });
-    }
-
-    // ========== FUNCIÓN PARA EXPORTAR CONFIRMACIONES ==========
-    function exportarConfirmaciones() {
-        const confirmaciones = JSON.parse(localStorage.getItem('confirmacionesXV')) || [];
+    // ========== FUNCIÓN PARA OBTENER TOKEN DE GITHUB ==========
+    function obtenerTokenGitHub() {
+        let token = localStorage.getItem('github_token_xv');
         
-        if (confirmaciones.length === 0) {
-            alert('No hay confirmaciones guardadas aún.');
-            return;
+        if (!token) {
+            token = prompt('🔐 Ingresa el token de acceso de GitHub (solo la primera vez):');
+            if (token) {
+                localStorage.setItem('github_token_xv', token);
+            }
         }
         
-        // Crear contenido TXT
-        let contenidoTXT = "CONFIRMACIONES XV SOFIA\n";
-        contenidoTXT += "=======================\n\n";
-        
-        confirmaciones.forEach((conf, index) => {
-            contenidoTXT += `CONFIRMACION #${index + 1}:\n`;
-            contenidoTXT += `Nombre: ${conf.nombre}\n`;
-            contenidoTXT += `Contacto: ${conf.contact}\n`;
-            contenidoTXT += `Asistencia: ${conf.asistencia === 'si' ? 'SI' : 'NO'}\n`;
-            contenidoTXT += `Acompañantes: ${conf.guests}\n`;
-            contenidoTXT += `Alergias: ${conf.alergias}${conf.otrasAlergias ? ' - ' + conf.otrasAlergias : ''}\n`;
-            contenidoTXT += `Preferencias: ${conf.preferencias}${conf.otrasPreferencias ? ' - ' + conf.otrasPreferencias : ''}\n`;
-            contenidoTXT += `Fecha: ${conf.timestamp}\n`;
-            contenidoTXT += "------------------------\n\n";
+        return token;
+    }
+
+    // ========== FUNCIÓN PARA ENVIAR CONFIRMACIÓN A GITHUB ==========
+    async function enviarConfirmacionGitHub(confirmacion) {
+        try {
+            const token = obtenerTokenGitHub();
+            if (!token) {
+                throw new Error('Se requiere token de acceso');
+            }
+
+            const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/dispatches`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'token ' + token,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    event_type: 'nueva_confirmacion',
+                    client_payload: {
+                        confirmacion: {
+                            nombre: confirmacion.nombre,
+                            email: confirmacion.contact,
+                            asistencia: confirmacion.asistencia === 'si' ? 'SI' : 'NO',
+                            acompanantes: confirmacion.guests,
+                            alergias: confirmacion.alergias + (confirmacion.otrasAlergias ? ` - ${confirmacion.otrasAlergias}` : ''),
+                            preferencias: confirmacion.preferencias + (confirmacion.otrasPreferencias ? ` - ${confirmacion.otrasPreferencias}` : ''),
+                            fecha: confirmacion.timestamp
+                        }
+                    }
+                })
+            });
+            
+            if (response.ok) {
+                console.log('✅ Confirmación enviada a GitHub');
+                return { exito: true, mensaje: 'Confirmación enviada correctamente' };
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Error al enviar la confirmación');
+            }
+            
+        } catch (error) {
+            console.error('❌ Error al enviar a GitHub:', error);
+            
+            // Si el error es de autenticación, borra el token para pedirlo nuevamente
+            if (error.message.includes('Bad credentials')) {
+                localStorage.removeItem('github_token_xv');
+            }
+            
+            throw error;
+        }
+    }
+
+    // ========== FUNCIÓN PRINCIPAL DE CONFIRMACIÓN ==========
+    async function procesarConfirmacion(confirmacion) {
+        return new Promise(async (resolve) => {
+            console.log('💾 Enviando confirmación a GitHub...', confirmacion);
+            
+            try {
+                const resultado = await enviarConfirmacionGitHub(confirmacion);
+                resolve(resultado);
+                
+            } catch (error) {
+                // Fallback: guardar en localStorage si GitHub falla
+                try {
+                    const confirmaciones = JSON.parse(localStorage.getItem('confirmacionesXV')) || [];
+                    confirmaciones.push(confirmacion);
+                    localStorage.setItem('confirmacionesXV', JSON.stringify(confirmaciones));
+                    
+                    console.log('⚠️ Guardado en localStorage (fallback)');
+                    resolve({ 
+                        exito: true, 
+                        mensaje: 'Confirmación guardada localmente (GitHub no disponible)' 
+                    });
+                } catch (localError) {
+                    resolve({ 
+                        exito: false, 
+                        mensaje: 'Error al guardar la confirmación' 
+                    });
+                }
+            }
         });
-        
-        // Descargar como TXT
-        const blob = new Blob([contenidoTXT], { type: 'text/plain;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'confirmaciones-xv.txt';
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        alert(`Se exportaron ${confirmaciones.length} confirmaciones a TXT`);
     }
 
     // ========== EFECTOS VISUALES ==========
@@ -1285,7 +1319,7 @@
         const originalText = btn.textContent;
         
         try {
-            btn.textContent = 'GUARDANDO...';
+            btn.textContent = 'ENVIANDO A GITHUB...';
             btn.disabled = true;
             
             const resultado = await procesarConfirmacion(confirmacionPendiente);
@@ -1296,7 +1330,7 @@
                 confirmation.style.display = 'block';
                 
                 const mensajeExito = confirmacionPendiente.asistencia === 'si' 
-                    ? `¡Gracias ${confirmacionPendiente.nombre}! Confirmación guardada. 🎉` 
+                    ? `¡Gracias ${confirmacionPendiente.nombre}! Confirmación enviada correctamente. 🎉` 
                     : `Lamentamos que no puedas asistir, ${confirmacionPendiente.nombre}. 😔`;
                 
                 mostrarMensaje(mensajeExito, false);
@@ -1321,7 +1355,7 @@
         } catch (error) {
             console.error('Error en el proceso:', error);
             ocultarModalToken();
-            mostrarMensaje('❌ Error al guardar. Intenta más tarde.', true);
+            mostrarMensaje('❌ Error al enviar. Se guardó localmente.', true);
             
             btn.textContent = 'ERROR - INTENTA DE NUEVO';
             setTimeout(() => {
@@ -1354,42 +1388,6 @@
         }
     });
 
-    // ========== BOTÓN PARA EXPORTAR CONFIRMACIONES ==========
-    function agregarBotonExportar() {
-        const exportBtn = document.createElement('button');
-        exportBtn.textContent = '💾 EXPORTAR TXT';
-        exportBtn.id = 'btn-exportar';
-        exportBtn.style.cssText = `
-            position: fixed;
-            bottom: 100px;
-            right: 20px;
-            z-index: 1000;
-            padding: 10px 15px;
-            background: linear-gradient(45deg, #8b5cf6, #ec4899);
-            color: white;
-            border: none;
-            border-radius: 25px;
-            cursor: pointer;
-            font-weight: bold;
-            box-shadow: 0 0 15px rgba(139, 92, 246, 0.7);
-            transition: all 0.3s;
-            font-size: 14px;
-        `;
-        
-        exportBtn.addEventListener('mouseenter', function() {
-            this.style.transform = 'scale(1.1)';
-            this.style.boxShadow = '0 0 25px rgba(139, 92, 246, 0.9)';
-        });
-        
-        exportBtn.addEventListener('mouseleave', function() {
-            this.style.transform = 'scale(1)';
-            this.style.boxShadow = '0 0 15px rgba(139, 92, 246, 0.7)';
-        });
-        
-        exportBtn.addEventListener('click', exportarConfirmaciones);
-        document.body.appendChild(exportBtn);
-    }
-
     // ========== CÓDIGO ORIGINAL (partículas, música, etc.) ==========
     document.addEventListener('DOMContentLoaded', function() {
         particlesJS('particles-js', {
@@ -1426,53 +1424,8 @@
             },
             retina_detect: true
         });
-        
-        // Agregar botón para exportar
-        agregarBotonExportar();
     });
 
-    // ========== CÓDIGO ORIGINAL (partículas, música, etc.) ==========
-    document.addEventListener('DOMContentLoaded', function() {
-        particlesJS('particles-js', {
-            particles: {
-                number: { value: 80, density: { enable: true, value_area: 800 } },
-                color: { value: ["#8b5cf6", "#ec4899", "#d8b4fe"] },
-                shape: { type: "circle" },
-                opacity: { value: 0.5, random: true },
-                size: { value: 3, random: true },
-                line_linked: {
-                    enable: true,
-                    distance: 150,
-                    color: "#8b5cf6",
-                    opacity: 0.4,
-                    width: 1
-                },
-                move: {
-                    enable: true,
-                    speed: 2,
-                    direction: "none",
-                    random: true,
-                    straight: false,
-                    out_mode: "out",
-                    bounce: false
-                }
-            },
-            interactivity: {
-                detect_on: "canvas",
-                events: {
-                    onhover: { enable: true, mode: "repulse" },
-                    onclick: { enable: true, mode: "push" },
-                    resize: true
-                }
-            },
-            retina_detect: true
-        });
-        
-        // Agregar botón para ver confirmaciones
-        agregarBotonVerConfirmaciones();
-    });
-
-    // ... (el resto del código de partículas, música, etc. se mantiene IGUAL)
     let audioContext;
     let audioElement;
     let isPlaying = false;
