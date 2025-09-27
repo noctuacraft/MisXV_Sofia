@@ -1032,568 +1032,513 @@
 
 <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
 <script>
-    // ========== CONFIGURACIÓN ==========
-    const TOKEN_INVITACION_VALIDO = "XVSOFIA2025";
-    const DISPATCHER_TOKEN = "github_pat_tu_token_dispatcher_aqui"; // REEMPLAZA
-    const REPO_OWNER = "noctuacraft";
-    const REPO_NAME = "MisXV_Sofia";
+/*
+  Código reorganizado y corregido para:
+  - Validación de formulario y modal de token
+  - Disparo de workflow via GitHub repository_dispatch
+  - Efectos visuales (confeti, triste, vibrate)
+  - Audio / partículas / luces / countdown
+  NOTA DE SEGURIDAD: NO guardes un token real en JS del lado cliente.
+  Si necesitas autenticar peticiones al API de GitHub, hacelo desde un backend.
+*/
 
-    // ========== VARIABLES GLOBALES ==========
-    let confirmacionPendiente = null;
+/* ========== CONFIGURACIÓN ========== */
+const TOKEN_INVITACION_VALIDO = "XVSOFIA2025";
+const DISPATCHER_TOKEN = "github_pat_tu_token_dispatcher_aqui"; // REEMPLAZA con cuidado; lo ideal: backend
+const REPO_OWNER = "noctuacraft";
+const REPO_NAME = "MisXV_Sofia";
 
-    // ========== MANEJO DEL MODAL DE TOKEN ==========
-    function mostrarModalToken() {
-        const modal = document.getElementById('tokenModal');
-        const tokenInput = document.getElementById('tokenInput');
-        
-        modal.style.display = 'block';
-        tokenInput.value = '';
-        tokenInput.focus();
-        
-        document.body.style.overflow = 'hidden';
+/* ========== UTILIDADES DOM ========== */
+function $(id) { return document.getElementById(id); }
+function safeQuery(id) {
+  const el = $(id);
+  if (!el) console.warn(`Elemento no encontrado: ${id}`);
+  return el;
+}
+
+/* ========== ESTADO GLOBAL ========== */
+let confirmacionPendiente = null;
+
+/* ========== MODAL TOKEN ========== */
+function mostrarModalToken() {
+  const modal = safeQuery('tokenModal');
+  const tokenInput = safeQuery('tokenInput');
+  if (!modal || !tokenInput) return;
+  modal.style.display = 'block';
+  tokenInput.value = '';
+  tokenInput.focus();
+  document.body.style.overflow = 'hidden';
+}
+
+function ocultarModalToken() {
+  const modal = safeQuery('tokenModal');
+  if (!modal) return;
+  modal.style.display = 'none';
+  document.body.style.overflow = 'auto';
+}
+
+/* ========== VALIDACIONES ========== */
+function validarTokenInvitacion(token) {
+  return token === TOKEN_INVITACION_VALIDO;
+}
+
+/* ========== GitHub: disparar workflow (repository_dispatch) ========== */
+async function dispararWorkflowGitHub(confirmacion) {
+  // IMPORTANTE: si el código se ejecuta en cliente público, esto expone el token.
+  const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/dispatches`;
+  const payload = {
+    event_type: "nueva_confirmacion",
+    client_payload: {
+      confirmacion: {
+        nombre: confirmacion.nombre,
+        email: confirmacion.contact,
+        asistencia: (confirmacion.asistencia === 'si') ? 'SI' : 'NO',
+        acompanantes: confirmacion.guests || '',
+        alergias: (confirmacion.alergias || '') + (confirmacion.otrasAlergias ? ` - ${confirmacion.otrasAlergias}` : ''),
+        preferencias: (confirmacion.preferencias || '') + (confirmacion.otrasPreferencias ? ` - ${confirmacion.otrasPreferencias}` : ''),
+        fecha: confirmacion.timestamp || new Date().toLocaleString('es-AR')
+      }
+    }
+  };
+
+  const headers = {
+    'Accept': 'application/vnd.github.v3+json',
+    'Content-Type': 'application/json',
+    // GitHub actualmente acepta "token <token>" o "Bearer <token>"
+    'Authorization': `token ${DISPATCHER_TOKEN}`,
+    'User-Agent': 'XV-Sofia-App'
+  };
+
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload)
+  });
+
+  if (resp.status === 204) {
+    return { exito: true, mensaje: 'Workflow disparado exitosamente' };
+  } else {
+    const text = await resp.text();
+    return { exito: false, mensaje: `GitHub error ${resp.status}: ${text}` };
+  }
+}
+
+/* ========== PROCESO DE CONFIRMACIÓN ========== */
+async function procesarConfirmacion(confirmacion) {
+  try {
+    console.log('💾 Intentando enviar confirmación a GitHub...', confirmacion);
+    const resultado = await dispararWorkflowGitHub(confirmacion);
+    if (resultado.exito) return resultado;
+
+    // Si GitHub respondió con error, fallback a localStorage
+    console.warn('GitHub respondió con error, guardando localmente:', resultado.mensaje);
+  } catch (err) {
+    console.error('Error al conectar con GitHub:', err);
+  }
+
+  // Fallback: guardar en localStorage
+  try {
+    const confirmaciones = JSON.parse(localStorage.getItem('confirmacionesXV') || '[]');
+    confirmaciones.push(confirmacion);
+    localStorage.setItem('confirmacionesXV', JSON.stringify(confirmaciones));
+    return { exito: true, mensaje: 'Confirmación guardada localmente (fallback)' };
+  } catch (localError) {
+    console.error('Error guardando localmente:', localError);
+    return { exito: false, mensaje: 'Error al guardar la confirmación' };
+  }
+}
+
+/* ========== MENSAJES Y EFECTOS ========== */
+function mostrarMensaje(mensaje, esError = false) {
+  document.querySelectorAll('.mensaje-flotante').forEach(m => m.remove());
+
+  const div = document.createElement('div');
+  div.className = 'mensaje-flotante';
+  div.style.cssText = `
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: ${esError ? 'rgba(236, 72, 153, 0.95)' : 'rgba(139, 92, 246, 0.95)'};
+    color: white;
+    padding: 12px 20px;
+    border-radius: 10px;
+    z-index: 10000;
+    font-weight: 700;
+    max-width: 90%;
+    text-align: center;
+    border: 2px solid ${esError ? '#ec4899' : '#8b5cf6'};
+    box-shadow: 0 0 18px rgba(0,0,0,0.15);
+  `;
+  div.textContent = mensaje;
+  document.body.appendChild(div);
+
+  setTimeout(() => {
+    div.style.opacity = '0';
+    setTimeout(() => div.remove(), 300);
+  }, 3000);
+}
+
+function crearEfectoConfeti() {
+  const colores = ['#8b5cf6', '#ec4899', '#d8b4fe', '#c4b5fd', '#a855f7'];
+  for (let i = 0; i < 20; i++) {
+    setTimeout(() => {
+      for (let j = 0; j < 5; j++) {
+        const c = document.createElement('div');
+        c.className = 'confetti';
+        c.style.cssText = `
+          position: fixed;
+          width: 10px;
+          height: 14px;
+          z-index: 9999;
+          left: ${Math.random() * 100}vw;
+          top: -20px;
+          background: ${colores[Math.floor(Math.random() * colores.length)]};
+          transform: translateY(0);
+          opacity: 0.95;
+        `;
+        document.body.appendChild(c);
+        // animación simple
+        c.animate([
+          { transform: 'translateY(0) rotate(0deg)', opacity: 1 },
+          { transform: `translateY(${window.innerHeight + 100}px) rotate(${Math.random()*720}deg)`, opacity: 0.8 }
+        ], { duration: 2000 + Math.random()*1000, easing: 'ease-out' });
+
+        setTimeout(() => c.remove(), 3000);
+      }
+    }, i * 80);
+  }
+}
+
+function crearEfectoTriste() {
+  const div = document.createElement('div');
+  div.className = 'sad-effect';
+  div.style.cssText = `
+    position: fixed;
+    z-index: 10000;
+    left: 50%;
+    top: 30%;
+    transform: translateX(-50%);
+    font-size: 48px;
+    pointer-events: none;
+  `;
+  div.textContent = '😢';
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 2000);
+}
+
+function crearEfectoErrorToken() {
+  const modal = safeQuery('tokenModal');
+  if (!modal) return;
+  modal.animate([
+    { transform: 'translateX(0)' },
+    { transform: 'translateX(-8px)' },
+    { transform: 'translateX(8px)' },
+    { transform: 'translateX(0)' }
+  ], { duration: 500, iterations: 1 });
+}
+
+/* ========== FORM HANDLER ========== */
+(function setupForm() {
+  const form = safeQuery('invitation-form');
+  if (!form) return;
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    const nombre = (safeQuery('name') && safeQuery('name').value || '').trim();
+    const contacto = (safeQuery('contact') && safeQuery('contact').value || '').trim();
+    const asistencia = (safeQuery('asistencia') && safeQuery('asistencia').value) || '';
+
+    if (!nombre || !contacto || !asistencia) {
+      mostrarMensaje('❌ Completa todos los campos requeridos', true);
+      return;
     }
 
-    function ocultarModalToken() {
-        const modal = document.getElementById('tokenModal');
-        modal.style.display = 'none';
-        document.body.style.overflow = 'auto';
+    confirmacionPendiente = {
+      nombre,
+      contact: contacto,
+      guests: (safeQuery('guests') && safeQuery('guests').value) || '',
+      alergias: (safeQuery('alergias') && safeQuery('alergias').value) || '',
+      otrasAlergias: (safeQuery('otrasAlergias') && safeQuery('otrasAlergias').value) || '',
+      preferencias: (safeQuery('preferencias') && safeQuery('preferencias').value) || '',
+      otrasPreferencias: (safeQuery('otrasPreferencias') && safeQuery('otrasPreferencias').value) || '',
+      asistencia,
+      timestamp: new Date().toLocaleString('es-AR')
+    };
+
+    mostrarModalToken();
+  });
+})();
+
+/* ========== MANEJO DEL MODAL - BOTÓN SUBMIT TOKEN ========== */
+(function setupTokenModal() {
+  const tokenSubmit = safeQuery('tokenSubmit');
+  if (!tokenSubmit) return;
+
+  tokenSubmit.addEventListener('click', async () => {
+    const tokenInput = safeQuery('tokenInput');
+    const btn = safeQuery('submit-btn');
+    const confirmation = safeQuery('confirmation');
+    if (!tokenInput || !btn) return;
+
+    const tokenUsuario = tokenInput.value.trim();
+    if (!tokenUsuario) {
+      tokenInput.focus();
+      mostrarMensaje('❌ Ingresa el código de invitación', true);
+      return;
     }
 
-    function validarTokenInvitacion(token) {
-        return token === TOKEN_INVITACION_VALIDO;
+    if (!validarTokenInvitacion(tokenUsuario)) {
+      crearEfectoErrorToken();
+      mostrarMensaje('❌ Código de invitación incorrecto', true);
+      return;
     }
 
-    // ========== FUNCIÓN PARA DISPARAR EL WORKFLOW ==========
-    async function dispararWorkflowGitHub(confirmacion) {
-        try {
-            const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/dispatches`;
-            
-            const payload = {
-                event_type: "nueva_confirmacion",
-                client_payload: {
-                    confirmacion: {
-                        nombre: confirmacion.nombre,
-                        email: confirmacion.contact,
-                        asistencia: confirmacion.asistencia === 'si' ? 'SI' : 'NO',
-                        acompanantes: confirmacion.guests,
-                        alergias: confirmacion.alergias + (confirmacion.otrasAlergias ? ` - ${confirmacion.otrasAlergias}` : ''),
-                        preferencias: confirmacion.preferencias + (confirmacion.otrasPreferencias ? ` - ${confirmacion.otrasPreferencias}` : ''),
-                        fecha: confirmacion.timestamp
-                    }
-                }
-            };
-            
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `token ${DISPATCHER_TOKEN}`,
-                    'Accept': 'application/vnd.github.v3+json',
-                    'Content-Type': 'application/json',
-                    'User-Agent': 'XV-Sofia-App'
-                },
-                body: JSON.stringify(payload)
-            });
-            
-            if (response.status === 204) {
-                console.log('✅ Workflow disparado exitosamente');
-                return { exito: true, mensaje: 'Confirmación enviada al servidor' };
-            } else {
-                const errorData = await response.text();
-                throw new Error(`Error ${response.status}: ${errorData}`);
-            }
-            
-        } catch (error) {
-            console.error('❌ Error al disparar workflow:', error);
-            throw error;
+    const originalText = btn.textContent;
+    try {
+      btn.textContent = 'ENVIANDO AL SERVIDOR...';
+      btn.disabled = true;
+
+      const resultado = await procesarConfirmacion(confirmacionPendiente);
+
+      if (resultado.exito) {
+        ocultarModalToken();
+        btn.textContent = '✓ CONFIRMADO';
+        if (confirmation) confirmation.style.display = 'block';
+
+        const mensajeExito = (confirmacionPendiente && confirmacionPendiente.asistencia === 'si')
+          ? `¡Gracias ${confirmacionPendiente.nombre}! Confirmación enviada. 🎉`
+          : `Lamentamos que no puedas asistir, ${confirmacionPendiente ? confirmacionPendiente.nombre : ''}. 😔`;
+
+        mostrarMensaje(mensajeExito, false);
+
+        if (confirmacionPendiente && confirmacionPendiente.asistencia === 'si') {
+          crearEfectoConfeti();
+        } else {
+          crearEfectoTriste();
         }
-    }
 
-    // ========== FUNCIÓN PRINCIPAL DE CONFIRMACIÓN ==========
-    async function procesarConfirmacion(confirmacion) {
-        return new Promise(async (resolve) => {
-            console.log('💾 Disparando workflow de GitHub...', confirmacion);
-            
-            try {
-                const resultado = await dispararWorkflowGitHub(confirmacion);
-                resolve(resultado);
-                
-            } catch (error) {
-                // Fallback: guardar en localStorage
-                try {
-                    const confirmaciones = JSON.parse(localStorage.getItem('confirmacionesXV')) || [];
-                    confirmaciones.push(confirmacion);
-                    localStorage.setItem('confirmacionesXV', JSON.stringify(confirmaciones));
-                    
-                    console.log('⚠️ Guardado en localStorage (fallback)');
-                    resolve({ 
-                        exito: true, 
-                        mensaje: 'Confirmación guardada localmente (GitHub no disponible)' 
-                    });
-                } catch (localError) {
-                    resolve({ 
-                        exito: false, 
-                        mensaje: 'Error al guardar la confirmación' 
-                    });
-                }
-            }
-        });
-    }
-
-    // ========== EFECTOS VISUALES (se mantienen igual) ==========
-    function crearEfectoConfeti() {
-        const colores = ['#8b5cf6', '#ec4899', '#d8b4fe', '#c4b5fd', '#a855f7'];
-        
-        for (let i = 0; i < 20; i++) {
-            setTimeout(() => {
-                for (let j = 0; j < 5; j++) {
-                    const confeti = document.createElement('div');
-                    confeti.className = 'confetti';
-                    confeti.style.backgroundColor = colores[Math.floor(Math.random() * colores.length)];
-                    confeti.style.left = Math.random() * 100 + 'vw';
-                    confeti.style.top = '-10px';
-                    confeti.style.setProperty('--tx', (Math.random() * 200 - 100) + 'px');
-                    confeti.style.setProperty('--rot', (Math.random() * 360) + 'deg');
-                    
-                    document.body.appendChild(confeti);
-                    
-                    setTimeout(() => {
-                        confeti.remove();
-                    }, 2000);
-                }
-            }, i * 100);
-        }
-    }
-
-    function crearEfectoTriste() {
-        const caraTriste = document.createElement('div');
-        caraTriste.className = 'sad-effect';
-        caraTriste.innerHTML = '😢';
-        document.body.appendChild(caraTriste);
-        
         setTimeout(() => {
-            caraTriste.remove();
+          const form = safeQuery('invitation-form');
+          if (form) form.reset();
+          btn.textContent = originalText;
+          btn.disabled = false;
+          if (confirmation) confirmation.style.display = 'none';
+          confirmacionPendiente = null;
+        }, 3000);
+
+      } else {
+        throw new Error(resultado.mensaje || 'Error desconocido');
+      }
+
+    } catch (error) {
+      console.error('Error en el proceso:', error);
+      ocultarModalToken();
+      mostrarMensaje('❌ Error al enviar al servidor. Se guardó localmente.', true);
+      if (btn) {
+        btn.textContent = 'ERROR - INTENTA DE NUEVO';
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.disabled = false;
         }, 2000);
+      }
     }
+  });
+})();
 
-    function crearEfectoErrorToken() {
-        const modal = document.getElementById('tokenModal');
-        
-        if (!document.querySelector('#shake-style')) {
-            const style = document.createElement('style');
-            style.id = 'shake-style';
-            style.textContent = `
-                @keyframes shake {
-                    0%, 100% { transform: translateX(0); }
-                    25% { transform: translateX(-10px); }
-                    75% { transform: translateX(10px); }
-                }
-            `;
-            document.head.appendChild(style);
+/* ========== PARTICULAS / EFECTOS / AUDIO / LUCES / COUNTDOWN ========== */
+function initParticles() {
+  if (typeof particlesJS === 'function' && $('particles-js')) {
+    particlesJS('particles-js', {
+      particles: {
+        number: { value: 80, density: { enable: true, value_area: 800 } },
+        color: { value: ["#8b5cf6", "#ec4899", "#d8b4fe"] },
+        shape: { type: "circle" },
+        opacity: { value: 0.5, random: true },
+        size: { value: 3, random: true },
+        line_linked: {
+          enable: true,
+          distance: 150,
+          color: "#8b5cf6",
+          opacity: 0.4,
+          width: 1
+        },
+        move: {
+          enable: true,
+          speed: 2,
+          random: true,
+          out_mode: "out",
+          bounce: false
         }
-        
-        modal.style.animation = 'shake 0.5s';
-        setTimeout(() => {
-            modal.style.animation = '';
-        }, 500);
-    }
-
-    function mostrarMensaje(mensaje, esError = false) {
-        const mensajesAnteriores = document.querySelectorAll('.mensaje-flotante');
-        mensajesAnteriores.forEach(msg => msg.remove());
-        
-        const mensajeDiv = document.createElement('div');
-        mensajeDiv.className = 'mensaje-flotante';
-        mensajeDiv.style.cssText = `
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: ${esError ? 'rgba(236, 72, 153, 0.9)' : 'rgba(139, 92, 246, 0.9)'};
-            color: white;
-            padding: 15px 25px;
-            border-radius: 10px;
-            z-index: 10000;
-            font-weight: bold;
-            animation: fadeIn 0.3s;
-            text-align: center;
-            max-width: 90%;
-            border: 2px solid ${esError ? '#ec4899' : '#8b5cf6'};
-            box-shadow: 0 0 20px ${esError ? 'rgba(236, 72, 153, 0.5)' : 'rgba(139, 92, 246, 0.5)'};
-        `;
-        mensajeDiv.textContent = mensaje;
-        
-        if (!document.querySelector('#animaciones-mensajes')) {
-            const style = document.createElement('style');
-            style.id = 'animaciones-mensajes';
-            style.textContent = `
-                @keyframes fadeIn {
-                    from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
-                    to { opacity: 1; transform: translateX(-50%) translateY(0); }
-                }
-                @keyframes fadeOut {
-                    from { opacity: 1; transform: translateX(-50%) translateY(0); }
-                    to { opacity: 0; transform: translateX(-50%) translateY(-20px); }
-                }
-            `;
-            document.head.appendChild(style);
+      },
+      interactivity: {
+        detect_on: "canvas",
+        events: {
+          onhover: { enable: true, mode: "repulse" },
+          onclick: { enable: true, mode: "push" },
+          resize: true
         }
-        
-        document.body.appendChild(mensajeDiv);
-        
-        setTimeout(() => {
-            mensajeDiv.style.animation = 'fadeOut 0.3s forwards';
-            setTimeout(() => {
-                if (mensajeDiv.parentNode) {
-                    mensajeDiv.remove();
-                }
-            }, 300);
-        }, 3000);
-    }
-
-    // ========== MANEJO DEL FORMULARIO ==========
-    document.getElementById('invitation-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const nombre = document.getElementById('name').value.trim();
-        const contacto = document.getElementById('contact').value.trim();
-        const asistencia = document.getElementById('asistencia').value;
-        
-        if (!nombre || !contacto || !asistencia) {
-            mostrarMensaje('❌ Completa todos los campos requeridos', true);
-            return;
-        }
-        
-        confirmacionPendiente = {
-            nombre: nombre,
-            contact: contacto,
-            guests: document.getElementById('guests').value,
-            alergias: document.getElementById('alergias').value,
-            otrasAlergias: document.getElementById('otrasAlergias').value,
-            preferencias: document.getElementById('preferencias').value,
-            otrasPreferencias: document.getElementById('otrasPreferencias').value,
-            asistencia: asistencia,
-            timestamp: new Date().toLocaleString('es-AR')
-        };
-        
-        mostrarModalToken();
+      },
+      retina_detect: true
     });
+  }
+}
 
-    // ========== MANEJO DEL MODAL ==========
-    document.getElementById('tokenSubmit').addEventListener('click', async function() {
-        const tokenInput = document.getElementById('tokenInput');
-        const tokenUsuario = tokenInput.value.trim();
-        
-        if (!tokenUsuario) {
-            tokenInput.focus();
-            mostrarMensaje('❌ Ingresa el código de invitación', true);
-            return;
-        }
-        
-        if (!validarTokenInvitacion(tokenUsuario)) {
-            crearEfectoErrorToken();
-            mostrarMensaje('❌ Código de invitación incorrecto', true);
-            return;
-        }
-        
-        const btn = document.getElementById('submit-btn');
-        const confirmation = document.getElementById('confirmation');
-        const originalText = btn.textContent;
-        
-        try {
-            btn.textContent = 'ENVIANDO AL SERVIDOR...';
-            btn.disabled = true;
-            
-            const resultado = await procesarConfirmacion(confirmacionPendiente);
-            
-            if (resultado.exito) {
-                ocultarModalToken();
-                btn.textContent = '✓ CONFIRMADO';
-                confirmation.style.display = 'block';
-                
-                const mensajeExito = confirmacionPendiente.asistencia === 'si' 
-                    ? `¡Gracias ${confirmacionPendiente.nombre}! Confirmación enviada al servidor. 🎉` 
-                    : `Lamentamos que no puedas asistir, ${confirmacionPendiente.nombre}. 😔`;
-                
-                mostrarMensaje(mensajeExito, false);
-                
-                if (confirmacionPendiente.asistencia === 'si') {
-                    crearEfectoConfeti();
-                } else {
-                    crearEfectoTriste();
-                }
-                
-                setTimeout(() => {
-                    document.getElementById('invitation-form').reset();
-                    btn.textContent = originalText;
-                    btn.disabled = false;
-                    confirmation.style.display = 'none';
-                    confirmacionPendiente = null;
-                }, 3000);
-            } else {
-                throw new Error(resultado.mensaje);
-            }
-            
-        } catch (error) {
-            console.error('Error en el proceso:', error);
-            ocultarModalToken();
-            mostrarMensaje('❌ Error al enviar al servidor. Se guardó localmente.', true);
-            
-            btn.textContent = 'ERROR - INTENTA DE NUEVO';
-            setTimeout(() => {
-                btn.textContent = originalText;
-                btn.disabled = false;
-            }, 2000);
-        }
-    });
+function createLights() {
+  const container = safeQuery('lights');
+  if (!container) return;
+  const colors = ['#8b5cf6', '#a855f7', '#c084fc', '#d8b4fe', '#ec4899'];
+  for (let i = 0; i < 20; i++) {
+    const light = document.createElement('div');
+    light.className = 'light';
+    const size = Math.random() * 150 + 50;
+    light.style.width = `${size}px`;
+    light.style.height = `${size}px`;
+    light.style.left = `${Math.random() * 100}%`;
+    light.style.top = `${Math.random() * 100}%`;
+    light.style.background = colors[Math.floor(Math.random() * colors.length)];
+    light.style.opacity = '0.12';
+    light.style.position = 'absolute';
+    container.appendChild(light);
+  }
+}
 
-    // ========== CÓDIGO ORIGINAL (partículas, música, etc.) ==========
-    document.addEventListener('DOMContentLoaded', function() {
-        particlesJS('particles-js', {
-            particles: {
-                number: { value: 80, density: { enable: true, value_area: 800 } },
-                color: { value: ["#8b5cf6", "#ec4899", "#d8b4fe"] },
-                shape: { type: "circle" },
-                opacity: { value: 0.5, random: true },
-                size: { value: 3, random: true },
-                line_linked: {
-                    enable: true,
-                    distance: 150,
-                    color: "#8b5cf6",
-                    opacity: 0.4,
-                    width: 1
-                },
-                move: {
-                    enable: true,
-                    speed: 2,
-                    direction: "none",
-                    random: true,
-                    straight: false,
-                    out_mode: "out",
-                    bounce: false
-                }
-            },
-            interactivity: {
-                detect_on: "canvas",
-                events: {
-                    onhover: { enable: true, mode: "repulse" },
-                    onclick: { enable: true, mode: "push" },
-                    resize: true
-                }
-            },
-            retina_detect: true
-        });
+function setupInputEffects() {
+  document.querySelectorAll('input').forEach(input => {
+    input.addEventListener('focus', () => {
+      vibrate();
+      input.style.boxShadow = '0 0 20px rgba(139, 92, 246, 1)';
     });
+    input.addEventListener('input', () => {
+      if (input.value.length > 2) vibrate();
+    });
+  });
+}
 
-    let audioContext;
-    let audioElement;
-    let isPlaying = false;
-    let audioStarted = false;
-    let youtubeAudio = null;
-    
-    function createLights() {
-        const lightsContainer = document.getElementById('lights');
-        const colors = ['#8b5cf6', '#a855f7', '#c084fc', '#d8b4fe', '#ec4899'];
-        
-        for (let i = 0; i < 20; i++) {
-            const light = document.createElement('div');
-            light.classList.add('light');
-            
-            const size = Math.random() * 150 + 50;
-            light.style.width = `${size}px`;
-            light.style.height = `${size}px`;
-            
-            light.style.left = `${Math.random() * 100}%`;
-            light.style.top = `${Math.random() * 100}%`;
-            
-            light.style.background = colors[Math.floor(Math.random() * colors.length)];
-            
-            light.style.animationDelay = `${Math.random() * 2}s`;
-            light.style.animationDuration = `${Math.random() * 2 + 1}s`;
-            
-            lightsContainer.appendChild(light);
-        }
+function vibrate() {
+  document.body.animate([
+    { transform: 'translateX(0)' },
+    { transform: 'translateX(5px)' },
+    { transform: 'translateX(-5px)' },
+    { transform: 'translateX(0)' }
+  ], { duration: 150, iterations: 1 });
+}
+
+/* Countdown */
+function setupCountdown() {
+  const daysEl = safeQuery('days');
+  const hoursEl = safeQuery('hours');
+  const minutesEl = safeQuery('minutes');
+  const secondsEl = safeQuery('seconds');
+
+  if (!daysEl || !hoursEl || !minutesEl || !secondsEl) return;
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  let partyDate = new Date(currentYear, 11, 7, 22, 0, 0); // 7 December, 22:00
+
+  if (now > partyDate) partyDate = new Date(currentYear + 1, 11, 7, 22, 0, 0);
+
+  function update() {
+    const diff = partyDate - new Date();
+    if (diff <= 0) {
+      daysEl.textContent = hoursEl.textContent = minutesEl.textContent = secondsEl.textContent = '00';
+      return;
     }
-    
-    function vibrate() {
-        document.body.style.transform = 'translateX(5px)';
-        setTimeout(() => {
-            document.body.style.transform = 'translateX(-5px)';
-            setTimeout(() => {
-                document.body.style.transform = 'translateX(0)';
-            }, 50);
-        }, 50);
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    daysEl.textContent = String(days).padStart(2, '0');
+    hoursEl.textContent = String(hours).padStart(2, '0');
+    minutesEl.textContent = String(minutes).padStart(2, '0');
+    secondsEl.textContent = String(seconds).padStart(2, '0');
+  }
+
+  update();
+  setInterval(update, 1000);
+}
+
+/* Audio setup (intento básico, con fallback a YouTube iframe) */
+function loadYouTubeAudio() {
+  const container = document.createElement('div');
+  container.style.display = 'none';
+  container.innerHTML = `
+    <iframe id="youtubeAudio" width="0" height="0"
+      src="https://www.youtube.com/embed/ezhEFXpGh40?autoplay=0&loop=1&playlist=ezhEFXpGh40"
+      frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+  `;
+  document.body.appendChild(container);
+  return document.getElementById('youtubeAudio');
+}
+
+function setupMusic() {
+  const audioElement = safeQuery('backgroundMusic');
+  const musicControl = safeQuery('musicControl');
+  const audioNotice = safeQuery('audioNotice');
+
+  if (!audioElement || !musicControl) return;
+
+  const youtubeAudio = loadYouTubeAudio();
+  let audioStarted = false;
+  let isPlaying = false;
+
+  async function startAudio() {
+    if (audioStarted) return;
+    try {
+      audioElement.volume = 0.5;
+      const playPromise = audioElement.play();
+      if (playPromise !== undefined) {
+        await playPromise;
+        audioStarted = true;
+        isPlaying = true;
+        if (audioNotice) audioNotice.style.display = 'none';
+      }
+    } catch (err) {
+      console.warn('Audio local falló, usando YouTube como fallback', err);
+      if (youtubeAudio) youtubeAudio.src += "&autoplay=1";
+      audioStarted = true;
+      isPlaying = true;
+      if (audioNotice) audioNotice.style.display = 'none';
     }
-    
-    function setupInputEffects() {
-        const inputs = document.querySelectorAll('input');
-        
-        inputs.forEach(input => {
-            input.addEventListener('focus', () => {
-                vibrate();
-                input.style.boxShadow = '0 0 20px rgba(139, 92, 246, 1)';
-            });
-            
-            input.addEventListener('input', () => {
-                if (input.value.length > 2) {
-                    vibrate();
-                }
-            });
-        });
+  }
+
+  function toggleMute() {
+    if (!audioStarted) return;
+    if (isPlaying) {
+      audioElement.muted = true;
+      if (youtubeAudio) youtubeAudio.src = youtubeAudio.src.replace("&autoplay=1", "&autoplay=0");
+      musicControl.innerHTML = '<i class="fas fa-volume-mute"></i>';
+    } else {
+      audioElement.muted = false;
+      if (youtubeAudio) youtubeAudio.src = youtubeAudio.src.replace("&autoplay=0", "&autoplay=1");
+      musicControl.innerHTML = '<i class="fas fa-volume-up"></i>';
     }
-    
-    function setupGiftSection() {
-        const giftOptions = document.querySelectorAll('input[name="gift"]');
-        const transferInfo = document.getElementById('transferInfo');
-        
-        giftOptions.forEach(option => {
-            option.addEventListener('change', function() {
-                if (this.value === 'no') {
-                    transferInfo.style.display = 'block';
-                    vibrate();
-                } else {
-                    transferInfo.style.display = 'none';
-                }
-            });
-        });
-    }
-    
-    function setupCountdown() {
-        const now = new Date();
-        const currentYear = now.getFullYear();
-        const partyDate = new Date(currentYear, 11, 7, 22, 0, 0);
-        
-        if (now > partyDate) {
-            partyDate.setFullYear(currentYear + 1);
-        }
-        
-        function updateCountdown() {
-            const now = new Date();
-            const diff = partyDate - now;
-            
-            if (diff <= 0) {
-                document.getElementById('days').textContent = '00';
-                document.getElementById('hours').textContent = '00';
-                document.getElementById('minutes').textContent = '00';
-                document.getElementById('seconds').textContent = '00';
-                return;
-            }
-            
-            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-            
-            document.getElementById('days').textContent = days.toString().padStart(2, '0');
-            document.getElementById('hours').textContent = hours.toString().padStart(2, '0');
-            document.getElementById('minutes').textContent = minutes.toString().padStart(2, '0');
-            document.getElementById('seconds').textContent = seconds.toString().padStart(2, '0');
-        }
-        
-        updateCountdown();
-        setInterval(updateCountdown, 1000);
-    }
-    
-    function loadYouTubeAudio() {
-        const youtubeContainer = document.createElement('div');
-        youtubeContainer.style.display = 'none';
-        youtubeContainer.innerHTML = `
-            <iframe id="youtubeAudio" width="0" height="0" src="https://www.youtube.com/embed/ezhEFXpGh40?autoplay=0&loop=1&playlist=ezhEFXpGh40" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
-        `;
-        document.body.appendChild(youtubeContainer);
-        
-        return document.getElementById('youtubeAudio');
-    }
-    
-    function setupMusic() {
-        audioElement = document.getElementById('backgroundMusic');
-        const musicControl = document.getElementById('musicControl');
-        const audioNotice = document.getElementById('audioNotice');
-        
-        youtubeAudio = loadYouTubeAudio();
-        
-        function startAudio() {
-            if (audioStarted) return;
-            
-            try {
-                audioElement.volume = 0.5;
-                const playPromise = audioElement.play();
-                
-                if (playPromise !== undefined) {
-                    playPromise.then(() => {
-                        audioStarted = true;
-                        isPlaying = true;
-                        audioNotice.style.display = 'none';
-                    }).catch(error => {
-                        console.log('Audio local falló, usando YouTube');
-                        youtubeAudio.src += "&autoplay=1";
-                        audioStarted = true;
-                        isPlaying = true;
-                        audioNotice.style.display = 'none';
-                    });
-                }
-            } catch (error) {
-                console.error('Error al inicializar el audio:', error);
-                youtubeAudio.src += "&autoplay=1";
-                audioStarted = true;
-                isPlaying = true;
-                audioNotice.style.display = 'none';
-            }
-        }
-        
-        function toggleMute() {
-            if (!audioStarted) return;
-            
-            if (isPlaying) {
-                audioElement.muted = true;
-                youtubeAudio.src = youtubeAudio.src.replace("&autoplay=1", "&autoplay=0");
-                musicControl.innerHTML = '<i class="fas fa-volume-mute"></i>';
-            } else {
-                audioElement.muted = false;
-                youtubeAudio.src = youtubeAudio.src.replace("&autoplay=0", "&autoplay=1");
-                musicControl.innerHTML = '<i class="fas fa-volume-up"></i>';
-            }
-            
-            isPlaying = !isPlaying;
-        }
-        
-        document.body.addEventListener('click', function() {
-            if (!audioStarted) {
-                startAudio();
-            }
-        });
-        
-        document.body.addEventListener('touchstart', function() {
-            if (!audioStarted) {
-                startAudio();
-            }
-        });
-        
-        musicControl.addEventListener('click', function() {
-            if (!audioStarted) {
-                startAudio();
-                return;
-            }
-            
-            toggleMute();
-        });
-    }
-    
-    window.addEventListener('load', () => {
-        createLights();
-        setupInputEffects();
-        setupGiftSection();
-        setupMusic();
-        setupCountdown();
-        
-        setTimeout(() => {
-            vibrate();
-        }, 800);
-        
-        setInterval(() => {
-            if (Math.random() > 0.7) {
-                vibrate();
-            }
-        }, 3000);
-    });
+    isPlaying = !isPlaying;
+  }
+
+  document.body.addEventListener('click', startAudio, { once: true });
+  document.body.addEventListener('touchstart', startAudio, { once: true });
+  musicControl.addEventListener('click', () => {
+    if (!audioStarted) { startAudio(); return; }
+    toggleMute();
+  });
+}
+
+/* ========== INIT ========== */
+document.addEventListener('DOMContentLoaded', () => {
+  initParticles();
+  createLights();
+  setupInputEffects();
+  setupCountdown();
+  setupMusic();
+
+  // pequeños toques aleatorios
+  setTimeout(vibrate, 800);
+  setInterval(() => { if (Math.random() > 0.7) vibrate(); }, 3000);
+});
 </script>
+
 </html>
