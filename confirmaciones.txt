@@ -10,3 +10,12 @@
 📅 FECHA: 26/9/2025, 11:02:13
 -----------------------------------------
 
+👤 NOMBRE: Lucas Prueba
+📧 CONTACTO: 872304918124
+✅ ASISTENCIA: SI
+👥 ACOMPAÑANTES: 1
+⚠️ ALERGIAS: Mariscos
+🍽️ PREFERENCIAS: Vegetariano
+📅 FECHA: 26/9/2025, 11:03:45
+-----------------------------------------
+
