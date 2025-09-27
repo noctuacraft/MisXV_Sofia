@@ -1,6 +1,3 @@
-# Archivos de confirmaciones (¡IMPORTANTE!)
-confirmaciones.txt
-
 # Archivos de entorno (variables sensibles)
 .env
 .env.local
