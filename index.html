@@ -1062,19 +1062,36 @@
         return token === TOKEN_INVITACION_VALIDO;
     }
 
-    // ========== FUNCIÓN PARA OBTENER TOKEN DE GITHUB ==========
-    function obtenerTokenGitHub() {
-        let token = localStorage.getItem('github_token_xv');
+    // ========== FUNCIÓN MEJORADA PARA OBTENER TOKEN ==========
+function obtenerTokenGitHub() {
+    let token = localStorage.getItem('github_token_xv');
+    
+    if (!token) {
+        // Mostrar instrucciones más claras
+        const mensaje = `🔐 TOKEN DE ACCESO GITHUB REQUERIDO
+
+Para que las confirmaciones se guarden en el repositorio, necesitás ingresar un token de acceso.
+
+¿CÓMO OBTENER EL TOKEN?
+1. Ve a GitHub.com → Settings → Developer settings
+2. Crea un "Personal access token" (classic)
+3. Dale permisos "repo" (completos)
+4. Copia el token que empieza con "ghp_"
+
+Ingresa el token aquí:`;
         
-        if (!token) {
-            token = prompt('🔐 Ingresa el token de acceso de GitHub (solo la primera vez):');
-            if (token) {
-                localStorage.setItem('github_token_xv', token);
-            }
+        token = prompt(mensaje);
+        if (token && token.startsWith('ghp_')) {
+            localStorage.setItem('github_token_xv', token);
+            alert('✅ Token guardado correctamente. Las confirmaciones se enviarán al repositorio.');
+        } else if (token) {
+            alert('❌ El token debe empezar con "ghp_". Por favor crea un token válido.');
+            return null;
         }
-        
-        return token;
     }
+    
+    return token;
+}
 
     // ========== FUNCIÓN PARA ENVIAR CONFIRMACIÓN A GITHUB ==========
     async function enviarConfirmacionGitHub(confirmacion) {
