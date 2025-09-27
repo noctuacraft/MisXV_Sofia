@@ -37,3 +37,12 @@
 📅 FECHA: 26/9/2025, 11:06:12
 -----------------------------------------
 
+👤 NOMBRE: Prueba celular
+📧 CONTACTO: 828483
+✅ ASISTENCIA: SI
+👥 ACOMPAÑANTES: 1
+⚠️ ALERGIAS: Gluten
+🍽️ PREFERENCIAS: Sin gluten
+📅 FECHA: 26/9/2025, 11:16:59
+-----------------------------------------
+
