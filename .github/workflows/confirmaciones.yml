@@ -7,13 +7,14 @@ on:
 jobs:
   procesar-confirmacion:
     runs-on: ubuntu-latest
+    
     steps:
       - name: 🚀 Checkout del código
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GH_ACTIONS_TOKEN }}
           
-      - name: 🔐 Actualizar y encriptar confirmaciones
+      - name: 🔐 Actualizar confirmaciones
         run: |
           # Crear el archivo si no existe
           if [ ! -f confirmaciones.txt ]; then
@@ -33,15 +34,10 @@ jobs:
           echo "-----------------------------------------" >> confirmaciones.txt
           echo "" >> confirmaciones.txt
           
-          # Encriptar el archivo
-          openssl enc -aes-256-cbc -salt -in confirmaciones.txt -out confirmaciones.enc -pass pass:${{ secrets.DO_NOT_STOLE }}
-          
-          # Configurar Git
+      - name: 📤 Subir cambios
+        run: |
           git config --global user.email "actions@github.com"
           git config --global user.name "GitHub Actions"
-          
-      - name: 📤 Subir cambios al repositorio
-        run: |
-          git add confirmaciones.enc
-          git commit -m "🔐 Nueva confirmación - ${{ github.event.client_payload.confirmacion.nombre }}"
+          git add confirmaciones.txt
+          git commit -m "✅ Confirmación - ${{ github.event.client_payload.confirmacion.nombre }}"
           git push
