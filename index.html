@@ -643,6 +643,37 @@
             background: var(--lila-suave);
         }
         
+        /* Estilos para efectos de confirmación */
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            pointer-events: none;
+            z-index: 9999;
+            animation: fallConfetti 2s linear forwards;
+        }
+
+        @keyframes fallConfetti {
+            0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+            100% { transform: translate(var(--tx), 100vh) rotate(var(--rot)); opacity: 0; }
+        }
+
+        .sad-effect {
+            position: fixed;
+            font-size: 4rem;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 9999;
+            animation: fadeOut 2s forwards;
+            text-shadow: 0 0 20px var(--lila-principal);
+        }
+
+        @keyframes fadeOut {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+        }
+        
         @media (max-width: 768px) {
             h1 { font-size: 3rem; }
             .subtitle { font-size: 1.2rem; }
@@ -680,6 +711,7 @@
     
 
     
+
     <div class="container">
         <div class="header">
             <h1>Mis XV Años</h1>
@@ -690,7 +722,7 @@
             <div class="photo-container">
                 <img src="Sofia.jpg" alt="Foto de la quinceañera" class="photo">
             </div>
-            <div class="photo-caption">En este día tan especial, celebro mis quince años y quiero festejarlos con vos</div>
+            <div class="photo-caption">En este día tan especial, celebro mis quince años y sueño con tenerte a mi lado</div>
         </div>
         
         <div class="invitation-text">
@@ -734,6 +766,34 @@
                 <div class="form-group">
                     <label for="guests">Número de acompañantes:</label>
                     <input type="number" id="guests" name="guests" min="1" value="1" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="alergias">Alergias alimentarias</label>
+                    <select name="alergias" id="alergias">
+                        <option value="">Selecciona una opción</option>
+                        <option value="Ninguna">Ninguna</option>
+                        <option value="Gluten">Gluten</option>
+                        <option value="Lactosa">Lactosa</option>
+                        <option value="Mariscos">Mariscos</option>
+                        <option value="Frutos secos">Frutos secos</option>
+                        <option value="Otros">Otros</option>
+                    </select>
+                    <input type="text" id="otrasAlergias" placeholder="Especifica otras alergias (opcional)">
+                </div>
+
+                <div class="form-group">
+                    <label for="preferencias">Preferencias alimentarias</label>
+                    <select name="preferencias" id="preferencias">
+                        <option value="">Selecciona una opción</option>
+                        <option value="Ninguna">Ninguna</option>
+                        <option value="Vegetariano">Vegetariano</option>
+                        <option value="Vegano">Vegano</option>
+                        <option value="Sin gluten">Sin gluten</option>
+                        <option value="Celiaco">Celiaco</option>
+                        <option value="Otros">Otros</option>
+                    </select>
+                    <input type="text" id="otrasPreferencias" placeholder="Especifica otras preferencias (opcional)">
                 </div>
 
                 <div class="form-group">
@@ -790,17 +850,13 @@
                 <li>Evitar vestidos en tonos lila o violeta</li>
             </ul>
         </div>
+        
         <footer>
-            <div class="copyright">
-                    &copy; <span id="year"></span> NoctuaCraft (Frederick Joaquin Riedel Padilla) - Todos los derechos reservados
-            </div>
+            &copy; 2025 NoctuaCraft (Frederick Joaquin Riedel Padilla) - Todos los derechos reservados
         </footer>
     </div>
 
 
-<script>
-document.getElementById('year').textContent = new Date().getFullYear();
-</script>
 
 <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
 <script>
