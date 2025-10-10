@@ -28,8 +28,6 @@ jobs:
           echo "📧 CONTACTO: ${{ github.event.client_payload.confirmacion.email }}" >> confirmaciones.txt
           echo "✅ ASISTENCIA: ${{ github.event.client_payload.confirmacion.asistencia }}" >> confirmaciones.txt
           echo "👥 ACOMPAÑANTES: ${{ github.event.client_payload.confirmacion.acompanantes }}" >> confirmaciones.txt
-          echo "⚠️ ALERGIAS: ${{ github.event.client_payload.confirmacion.alergias }}" >> confirmaciones.txt
-          echo "🍽️ PREFERENCIAS: ${{ github.event.client_payload.confirmacion.preferencias }}" >> confirmaciones.txt
           echo "📅 FECHA: ${{ github.event.client_payload.confirmacion.fecha }}" >> confirmaciones.txt
           echo "-----------------------------------------" >> confirmaciones.txt
           echo "" >> confirmaciones.txt
