@@ -907,8 +907,6 @@
                             email: confirmacion.contact,
                             asistencia: confirmacion.asistencia === 'si' ? 'SI' : 'NO',
                             acompanantes: confirmacion.guests,
-                            alergias: confirmacion.alergias + (confirmacion.otrasAlergias ? ` - ${confirmacion.otrasAlergias}` : ''),
-                            preferencias: confirmacion.preferencias + (confirmacion.otrasPreferencias ? ` - ${confirmacion.otrasPreferencias}` : ''),
                             fecha: confirmacion.timestamp
                         }
                     }
@@ -1093,10 +1091,6 @@
             nombre: nombre,
             contact: contacto,
             guests: document.getElementById('guests').value,
-            alergias: document.getElementById('alergias').value,
-            otrasAlergias: document.getElementById('otrasAlergias').value,
-            preferencias: document.getElementById('preferencias').value,
-            otrasPreferencias: document.getElementById('otrasPreferencias').value,
             asistencia: asistencia,
             timestamp: new Date().toLocaleString('es-AR')
         };
